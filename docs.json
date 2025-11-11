@@ -15,7 +15,7 @@
         "groups": [
           {
             "group": "Getting started",
-            "pages": ["index"]
+            "pages": ["index", "fast", "quickstart"]
           }
         ]
       }
