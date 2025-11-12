@@ -12,7 +12,7 @@
     "codeblocks": {
       "theme" : "rose-pine-dawn"
     },
-    "latex": true
+    "latex": false
   },
   "navigation": {
     "tabs": [
