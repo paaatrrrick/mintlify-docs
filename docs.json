@@ -11,8 +11,7 @@
   "styling":{
     "codeblocks": {
       "theme" : "rose-pine-dawn"
-    },
-    "latex": false
+    }
   },
   "navigation": {
     "tabs": [
