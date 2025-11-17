@@ -13,6 +13,13 @@
       "theme" : "rose-pine-dawn"
     }
   },
+  "api": {
+    "mdx": {
+      "auth": {
+        "method": "bearer"
+      }
+    }
+  },
   "navigation": {
     "tabs": [
       {
@@ -23,6 +30,10 @@
             "pages": ["index", "fast", "quickstart"]
           }
         ]
+      },
+      {
+        "tab": "API reference",
+        "groups": [{"group": "API reference", "pages": ["api/trigger"]}]
       }
     ],
     "global": {
