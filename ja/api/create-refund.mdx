@@ -1,0 +1,164 @@
+---
+title: "返金処理"
+api: "POST /api/v1/refunds"
+description: "支払いの返金を処理します"
+---
+
+## ボディパラメータ
+
+<ParamField body="payment_id" type="string" required>
+  返金する支払いのID
+</ParamField>
+
+<ParamField body="amount" type="number">
+  返金額（未指定の場合は全額返金）
+</ParamField>
+
+<ParamField body="reason" type="string" required>
+  返金理由: `customer_request`、`product_defect`、`wrong_item`、`damaged_in_shipping`、`other`
+</ParamField>
+
+<ParamField body="description" type="string">
+  返金理由の詳細説明
+</ParamField>
+
+<ParamField body="refund_shipping" type="boolean" default="false">
+  送料も返金する
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.example.com/api/v1/refunds \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "payment_id": "pay_789",
+    "amount": 29999,
+    "reason": "product_defect",
+    "description": "商品に初期不良がありました",
+    "refund_shipping": true
+  }'
+```
+
+```python Python
+import requests
+
+url = "https://api.example.com/api/v1/refunds"
+headers = {
+    "Authorization": "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json"
+}
+data = {
+    "payment_id": "pay_789",
+    "amount": 29999,
+    "reason": "product_defect",
+    "description": "商品に初期不良がありました",
+    "refund_shipping": True
+}
+
+response = requests.post(url, json=data, headers=headers)
+refund = response.json()
+
+print(f"返金ID: {refund['id']}")
+print(f"返金額: ¥{refund['amount']:,}")
+print(f"ステータス: {refund['status']}")
+print(f"処理完了予定: {refund['estimated_arrival']}")
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.example.com/api/v1/refunds', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    payment_id: 'pay_789',
+    amount: 29999,
+    reason: 'product_defect',
+    description: '商品に初期不良がありました',
+    refund_shipping: true
+  })
+});
+
+const refund = await response.json();
+console.log(`返金が処理されました: ¥${refund.amount.toLocaleString('ja-JP')}`);
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 成功
+{
+  "id": "ref_123",
+  "payment_id": "pay_789",
+  "order_id": "order_123",
+  "amount": 29999,
+  "shipping_refund": 500,
+  "total_refund": 30499,
+  "currency": "JPY",
+  "reason": "product_defect",
+  "description": "商品に初期不良がありました",
+  "status": "processing",
+  "refund_method": "original_payment_method",
+  "estimated_arrival": "2024-01-25T00:00:00Z",
+  "business_days": "5-7営業日",
+  "created_at": "2024-01-20T15:30:00Z"
+}
+```
+
+```json 400 返金不可
+{
+  "error": {
+    "code": "REFUND_NOT_ALLOWED",
+    "message": "この支払いは返金できません",
+    "reason": "refund_period_expired",
+    "description": "返金期限（30日）を過ぎています"
+  }
+}
+```
+
+```json 400 金額超過
+{
+  "error": {
+    "code": "INVALID_REFUND_AMOUNT",
+    "message": "返金額が無効です",
+    "max_refundable": 59998,
+    "requested": 70000
+  }
+}
+```
+
+```json 409 既に返金済み
+{
+  "error": {
+    "code": "ALREADY_REFUNDED",
+    "message": "この支払いは既に返金されています",
+    "refund_id": "ref_122"
+  }
+}
+```
+</ResponseExample>
+
+## 返金処理の流れ
+
+<Steps>
+  <Step title="返金リクエスト">
+    返金APIを呼び出して返金をリクエストします
+  </Step>
+  <Step title="審査">
+    システムが返金条件を確認します（返金期限内、返金可能な状態など）
+  </Step>
+  <Step title="処理開始">
+    返金処理が開始され、ステータスが`processing`になります
+  </Step>
+  <Step title="返金完了">
+    通常5〜7営業日で返金が完了し、ステータスが`completed`になります
+  </Step>
+  <Step title="通知">
+    顧客に返金完了のメール通知が送信されます
+  </Step>
+</Steps>
+
+<Note>
+返金は元の支払い方法に対して行われます。クレジットカードの場合、カード会社の処理により返金までに時間がかかる場合があります。
+</Note>

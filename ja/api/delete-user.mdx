@@ -1,0 +1,103 @@
+---
+title: "ユーザーの削除"
+api: "DELETE /api/v1/users/{id}"
+description: "ユーザーアカウントを完全に削除します"
+---
+
+## パスパラメータ
+
+<ParamField path="id" type="string" required>
+  削除するユーザーの一意の識別子
+</ParamField>
+
+## クエリパラメータ
+
+<ParamField query="confirm" type="boolean" default="false">
+  削除の確認フラグ。`true`に設定する必要があります
+</ParamField>
+
+<ParamField query="backup" type="boolean" default="false">
+  削除前にユーザーデータのバックアップを作成
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X DELETE "https://api.example.com/api/v1/users/user_123?confirm=true&backup=true" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```python Python
+import requests
+
+url = "https://api.example.com/api/v1/users/user_123"
+headers = {"Authorization": "Bearer YOUR_API_KEY"}
+params = {"confirm": True, "backup": True}
+
+response = requests.delete(url, headers=headers, params=params)
+print(response.status_code)
+```
+
+```javascript JavaScript
+const params = new URLSearchParams({
+  confirm: 'true',
+  backup: 'true'
+});
+
+const response = await fetch(
+  `https://api.example.com/api/v1/users/user_123?${params}`,
+  {
+    method: 'DELETE',
+    headers: {
+      'Authorization': 'Bearer YOUR_API_KEY'
+    }
+  }
+);
+
+console.log(response.status);
+```
+
+```ruby Ruby
+require 'net/http'
+require 'uri'
+
+uri = URI('https://api.example.com/api/v1/users/user_123')
+uri.query = URI.encode_www_form(confirm: true, backup: true)
+
+http = Net::HTTP.new(uri.host, uri.port)
+http.use_ssl = true
+
+request = Net::HTTP::Delete.new(uri)
+request['Authorization'] = 'Bearer YOUR_API_KEY'
+
+response = http.request(request)
+puts response.code
+```
+</RequestExample>
+
+<ResponseExample>
+```json 204 削除成功
+// レスポンスボディなし
+```
+
+```json 400 確認が必要
+{
+  "error": {
+    "code": "CONFIRMATION_REQUIRED",
+    "message": "ユーザー削除には確認が必要です。confirm=trueを設定してください"
+  }
+}
+```
+
+```json 404 見つかりません
+{
+  "error": {
+    "code": "USER_NOT_FOUND",
+    "message": "指定されたIDのユーザーが見つかりません"
+  }
+}
+```
+</ResponseExample>
+
+<Warning>
+この操作は元に戻せません。削除する前に必ずバックアップオプションの使用を検討してください。
+</Warning>

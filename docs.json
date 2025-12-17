@@ -174,8 +174,43 @@
                 "group": "ユーザー管理",
                 "icon": "user",
                 "pages": [
+                  "ja/api/list-users",
                   "ja/api/get-users",
-                  "ja/api/create-user"
+                  "ja/api/create-user",
+                  "ja/api/update-user",
+                  "ja/api/delete-user"
+                ]
+              },
+              {
+                "group": "商品管理",
+                "icon": "box",
+                "pages": [
+                  "ja/api/list-products",
+                  "ja/api/get-product"
+                ]
+              },
+              {
+                "group": "注文管理",
+                "icon": "shopping-cart",
+                "pages": [
+                  "ja/api/list-orders",
+                  "ja/api/create-order"
+                ]
+              },
+              {
+                "group": "支払い・返金",
+                "icon": "credit-card",
+                "pages": [
+                  "ja/api/process-payment",
+                  "ja/api/create-refund"
+                ]
+              },
+              {
+                "group": "検索・分析",
+                "icon": "chart-line",
+                "pages": [
+                  "ja/api/search",
+                  "ja/api/analytics"
                 ]
               }
             ]

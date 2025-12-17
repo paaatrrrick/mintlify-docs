@@ -1,0 +1,310 @@
+---
+title: "注文の作成"
+api: "POST /api/v1/orders"
+description: "新しい注文を作成します"
+---
+
+## ボディパラメータ
+
+<ParamField body="user_id" type="string" required>
+  注文を行うユーザーのID
+</ParamField>
+
+<ParamField body="items" type="array" required>
+  注文アイテムの配列
+  <Expandable title="アイテムオブジェクト">
+    <ParamField body="product_id" type="string" required>
+      商品ID
+    </ParamField>
+    <ParamField body="variant_id" type="string">
+      商品バリアントID（オプション）
+    </ParamField>
+    <ParamField body="quantity" type="integer" required>
+      注文数量
+    </ParamField>
+    <ParamField body="price" type="number" required>
+      単価
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="shipping_address" type="object" required>
+  配送先住所の詳細
+  <Expandable title="プロパティ">
+    <ParamField body="postal_code" type="string" required>
+      郵便番号
+    </ParamField>
+    <ParamField body="prefecture" type="string" required>
+      都道府県
+    </ParamField>
+    <ParamField body="city" type="string" required>
+      市区町村
+    </ParamField>
+    <ParamField body="address_line1" type="string" required>
+      住所1
+    </ParamField>
+    <ParamField body="address_line2" type="string">
+      住所2（建物名・部屋番号など）
+    </ParamField>
+    <ParamField body="recipient_name" type="string" required>
+      受取人氏名
+    </ParamField>
+    <ParamField body="phone_number" type="string" required>
+      電話番号
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="payment_method_id" type="string" required>
+  支払い方法識別子
+</ParamField>
+
+<ParamField body="coupon_code" type="string">
+  クーポンコード（オプション）
+</ParamField>
+
+<ParamField body="gift_wrapping" type="boolean" default="false">
+  ギフトラッピングを希望
+</ParamField>
+
+<ParamField body="delivery_notes" type="string">
+  配達メモ
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.example.com/api/v1/orders \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "user_456",
+    "items": [
+      {
+        "product_id": "prod_789",
+        "variant_id": "var_001",
+        "quantity": 2,
+        "price": 29999
+      },
+      {
+        "product_id": "prod_790",
+        "quantity": 1,
+        "price": 19999
+      }
+    ],
+    "shipping_address": {
+      "postal_code": "150-0001",
+      "prefecture": "東京都",
+      "city": "渋谷区",
+      "address_line1": "神宮前1-2-3",
+      "address_line2": "ABCビル301",
+      "recipient_name": "山田太郎",
+      "phone_number": "090-1234-5678"
+    },
+    "payment_method_id": "pm_123",
+    "coupon_code": "WELCOME2024",
+    "gift_wrapping": true,
+    "delivery_notes": "配達は午後2時以降でお願いします"
+  }'
+```
+
+```python Python
+import requests
+
+url = "https://api.example.com/api/v1/orders"
+headers = {
+    "Authorization": "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json"
+}
+data = {
+    "user_id": "user_456",
+    "items": [
+        {
+            "product_id": "prod_789",
+            "variant_id": "var_001",
+            "quantity": 2,
+            "price": 29999
+        },
+        {
+            "product_id": "prod_790",
+            "quantity": 1,
+            "price": 19999
+        }
+    ],
+    "shipping_address": {
+        "postal_code": "150-0001",
+        "prefecture": "東京都",
+        "city": "渋谷区",
+        "address_line1": "神宮前1-2-3",
+        "address_line2": "ABCビル301",
+        "recipient_name": "山田太郎",
+        "phone_number": "090-1234-5678"
+    },
+    "payment_method_id": "pm_123",
+    "coupon_code": "WELCOME2024",
+    "gift_wrapping": True,
+    "delivery_notes": "配達は午後2時以降でお願いします"
+}
+
+response = requests.post(url, json=data, headers=headers)
+order = response.json()
+
+print(f"注文番号: {order['id']}")
+print(f"合計金額: ¥{order['total_amount']:,}")
+print(f"配達予定日: {order['estimated_delivery']}")
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.example.com/api/v1/orders', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    user_id: 'user_456',
+    items: [
+      {
+        product_id: 'prod_789',
+        variant_id: 'var_001',
+        quantity: 2,
+        price: 29999
+      },
+      {
+        product_id: 'prod_790',
+        quantity: 1,
+        price: 19999
+      }
+    ],
+    shipping_address: {
+      postal_code: '150-0001',
+      prefecture: '東京都',
+      city: '渋谷区',
+      address_line1: '神宮前1-2-3',
+      address_line2: 'ABCビル301',
+      recipient_name: '山田太郎',
+      phone_number: '090-1234-5678'
+    },
+    payment_method_id: 'pm_123',
+    coupon_code: 'WELCOME2024',
+    gift_wrapping: true,
+    delivery_notes: '配達は午後2時以降でお願いします'
+  })
+});
+
+const order = await response.json();
+console.log(`注文が正常に作成されました: ${order.id}`);
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 作成成功
+{
+  "id": "order_123",
+  "order_number": "ORD-2024-001234",
+  "user_id": "user_456",
+  "items": [
+    {
+      "product_id": "prod_789",
+      "product_name": "ワイヤレスヘッドホン Pro",
+      "variant": {
+        "id": "var_001",
+        "name": "ブラック"
+      },
+      "quantity": 2,
+      "price": 29999,
+      "subtotal": 59998
+    },
+    {
+      "product_id": "prod_790",
+      "product_name": "スマートウォッチ",
+      "quantity": 1,
+      "price": 19999,
+      "subtotal": 19999
+    }
+  ],
+  "subtotal": 79997,
+  "discount": {
+    "coupon_code": "WELCOME2024",
+    "amount": 8000,
+    "description": "初回購入10%オフ"
+  },
+  "shipping_fee": 0,
+  "gift_wrapping_fee": 500,
+  "tax": 7250,
+  "total_amount": 79747,
+  "currency": "JPY",
+  "status": "pending",
+  "payment_status": "pending",
+  "shipping_address": {
+    "postal_code": "150-0001",
+    "prefecture": "東京都",
+    "city": "渋谷区",
+    "address_line1": "神宮前1-2-3",
+    "address_line2": "ABCビル301",
+    "recipient_name": "山田太郎",
+    "phone_number": "090-1234-5678"
+  },
+  "delivery_notes": "配達は午後2時以降でお願いします",
+  "estimated_delivery": "2024-01-25T00:00:00Z",
+  "tracking": {
+    "available": false,
+    "number": null,
+    "carrier": null
+  },
+  "created_at": "2024-01-20T15:30:00Z",
+  "updated_at": "2024-01-20T15:30:00Z"
+}
+```
+
+```json 400 バリデーションエラー
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "無効な注文データ",
+    "details": [
+      {
+        "field": "items",
+        "message": "少なくとも1つのアイテムが必要です"
+      },
+      {
+        "field": "shipping_address.postal_code",
+        "message": "有効な郵便番号を入力してください"
+      }
+    ]
+  }
+}
+```
+
+```json 400 在庫不足
+{
+  "error": {
+    "code": "INSUFFICIENT_STOCK",
+    "message": "在庫が不足しています",
+    "details": [
+      {
+        "product_id": "prod_789",
+        "requested": 2,
+        "available": 1
+      }
+    ]
+  }
+}
+```
+
+```json 400 無効なクーポン
+{
+  "error": {
+    "code": "INVALID_COUPON",
+    "message": "クーポンコードが無効または期限切れです"
+  }
+}
+```
+</ResponseExample>
+
+<Note>
+注文作成時に在庫の確認が自動的に行われます。在庫が不足している場合、注文は作成されません。
+</Note>
+
+<Tip>
+送料無料の条件を満たしている場合、`shipping_fee`は0になります。
+</Tip>

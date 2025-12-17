@@ -1,0 +1,277 @@
+---
+title: "分析データの取得"
+api: "GET /api/v1/analytics"
+description: "売上、ユーザー、商品の分析データを取得します"
+---
+
+## クエリパラメータ
+
+<ParamField query="metric" type="string" required>
+  取得するメトリクス: `sales`、`users`、`products`、`orders`、`revenue`
+</ParamField>
+
+<ParamField query="period" type="string" required>
+  期間: `today`、`yesterday`、`last_7_days`、`last_30_days`、`this_month`、`last_month`、`custom`
+</ParamField>
+
+<ParamField query="from_date" type="string">
+  開始日（period=customの場合に必須、ISO 8601形式）
+</ParamField>
+
+<ParamField query="to_date" type="string">
+  終了日（period=customの場合に必須、ISO 8601形式）
+</ParamField>
+
+<ParamField query="group_by" type="string">
+  グループ化: `hour`、`day`、`week`、`month`
+</ParamField>
+
+<ParamField query="filters" type="object">
+  フィルタ条件
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.example.com/api/v1/analytics?metric=sales&period=last_30_days&group_by=day" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```python Python
+import requests
+import matplotlib.pyplot as plt
+from datetime import datetime
+
+url = "https://api.example.com/api/v1/analytics"
+headers = {"Authorization": "Bearer YOUR_API_KEY"}
+
+# 過去30日間の売上を取得
+params = {
+    "metric": "sales",
+    "period": "last_30_days",
+    "group_by": "day"
+}
+
+response = requests.get(url, headers=headers, params=params)
+analytics = response.json()
+
+# グラフを作成
+dates = [item['date'] for item in analytics['data']]
+sales = [item['value'] for item in analytics['data']]
+
+plt.figure(figsize=(12, 6))
+plt.plot(dates, sales, marker='o')
+plt.title('過去30日間の売上推移')
+plt.xlabel('日付')
+plt.ylabel('売上 (¥)')
+plt.xticks(rotation=45)
+plt.grid(True)
+plt.tight_layout()
+plt.savefig('sales_chart.png')
+
+print(f"総売上: ¥{analytics['summary']['total']:,}")
+print(f"平均: ¥{analytics['summary']['average']:,}")
+print(f"最高: ¥{analytics['summary']['max']:,}")
+```
+
+```javascript JavaScript
+// ダッシュボード用のデータを取得
+async function getDashboardData() {
+  const metrics = ['sales', 'orders', 'users', 'revenue'];
+  const period = 'last_7_days';
+
+  const promises = metrics.map(metric =>
+    fetch(
+      `https://api.example.com/api/v1/analytics?metric=${metric}&period=${period}`,
+      {
+        headers: {
+          'Authorization': 'Bearer YOUR_API_KEY'
+        }
+      }
+    ).then(res => res.json())
+  );
+
+  const results = await Promise.all(promises);
+
+  const dashboard = {
+    sales: results[0],
+    orders: results[1],
+    users: results[2],
+    revenue: results[3]
+  };
+
+  console.log('ダッシュボードデータ:', {
+    売上件数: dashboard.sales.summary.total,
+    注文数: dashboard.orders.summary.total,
+    新規ユーザー: dashboard.users.summary.total,
+    売上高: `¥${dashboard.revenue.summary.total.toLocaleString('ja-JP')}`
+  });
+
+  return dashboard;
+}
+```
+
+```swift Swift
+import Foundation
+
+struct AnalyticsRequest {
+    let metric: String
+    let period: String
+    let groupBy: String?
+
+    func fetch(completion: @escaping (Result<Analytics, Error>) -> Void) {
+        var components = URLComponents(string: "https://api.example.com/api/v1/analytics")!
+        components.queryItems = [
+            URLQueryItem(name: "metric", value: metric),
+            URLQueryItem(name: "period", value: period)
+        ]
+
+        if let groupBy = groupBy {
+            components.queryItems?.append(URLQueryItem(name: "group_by", value: groupBy))
+        }
+
+        var request = URLRequest(url: components.url!)
+        request.addValue("Bearer YOUR_API_KEY", forHTTPHeaderField: "Authorization")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            // Handle response
+        }.resume()
+    }
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 成功 - 売上データ
+{
+  "metric": "sales",
+  "period": "last_30_days",
+  "from_date": "2024-01-01T00:00:00Z",
+  "to_date": "2024-01-30T23:59:59Z",
+  "group_by": "day",
+  "data": [
+    {
+      "date": "2024-01-01",
+      "value": 1250000,
+      "count": 42,
+      "average": 29761
+    },
+    {
+      "date": "2024-01-02",
+      "value": 980000,
+      "count": 35,
+      "average": 28000
+    },
+    {
+      "date": "2024-01-03",
+      "value": 1450000,
+      "count": 51,
+      "average": 28431
+    }
+  ],
+  "summary": {
+    "total": 35680000,
+    "count": 1247,
+    "average": 28608,
+    "max": 1850000,
+    "min": 650000,
+    "growth_rate": 12.5,
+    "compared_to_previous": {
+      "total": 31760000,
+      "difference": 3920000,
+      "percentage": 12.3
+    }
+  },
+  "trends": {
+    "direction": "up",
+    "strength": "strong",
+    "prediction_next_30_days": 39200000
+  },
+  "top_performing": {
+    "day": "2024-01-15",
+    "value": 1850000
+  },
+  "insights": [
+    {
+      "type": "growth",
+      "message": "売上が前月比12.5%増加しています"
+    },
+    {
+      "type": "trend",
+      "message": "週末の売上が平日より23%高い傾向があります"
+    }
+  ]
+}
+```
+
+```json 200 成功 - ユーザー成長
+{
+  "metric": "users",
+  "period": "last_30_days",
+  "data": [
+    {
+      "date": "2024-01-01",
+      "new_users": 125,
+      "active_users": 3420,
+      "retention_rate": 68.5
+    }
+  ],
+  "summary": {
+    "total_new_users": 3850,
+    "total_active_users": 102450,
+    "average_daily_active": 3415,
+    "growth_rate": 15.2,
+    "churn_rate": 4.3
+  },
+  "demographics": {
+    "age_groups": {
+      "18-24": 25,
+      "25-34": 35,
+      "35-44": 22,
+      "45-54": 12,
+      "55+": 6
+    },
+    "regions": {
+      "関東": 42,
+      "関西": 28,
+      "中部": 15,
+      "その他": 15
+    }
+  }
+}
+```
+</ResponseExample>
+
+## 利用可能なメトリクス
+
+<CardGroup cols={2}>
+  <Card title="売上 (sales)" icon="chart-line">
+    売上件数、金額、平均単価の推移
+  </Card>
+  <Card title="売上高 (revenue)" icon="yen-sign">
+    総売上高、利益、成長率の分析
+  </Card>
+  <Card title="注文 (orders)" icon="shopping-cart">
+    注文数、キャンセル率、平均処理時間
+  </Card>
+  <Card title="ユーザー (users)" icon="users">
+    新規登録、アクティブユーザー、リテンション率
+  </Card>
+  <Card title="商品 (products)" icon="box">
+    商品別売上、在庫回転率、人気商品
+  </Card>
+  <Card title="トラフィック (traffic)" icon="chart-area">
+    ページビュー、セッション、直帰率
+  </Card>
+</CardGroup>
+
+## カスタム期間の指定
+
+```bash
+# カスタム期間を指定
+curl -X GET "https://api.example.com/api/v1/analytics?metric=sales&period=custom&from_date=2024-01-01T00:00:00Z&to_date=2024-01-31T23:59:59Z&group_by=week" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+<Tip>
+分析データは1時間ごとに更新されます。リアルタイムデータが必要な場合は、`metric=realtime_sales`を使用してください。
+</Tip>

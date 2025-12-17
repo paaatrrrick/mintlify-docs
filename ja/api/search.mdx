@@ -1,0 +1,251 @@
+---
+title: "全文検索"
+api: "GET /api/v1/search"
+description: "商品、ユーザー、注文を横断検索します"
+---
+
+## クエリパラメータ
+
+<ParamField query="q" type="string" required>
+  検索クエリ
+</ParamField>
+
+<ParamField query="type" type="string">
+  検索対象タイプ: `products`、`users`、`orders`、`all`（デフォルト: `all`）
+</ParamField>
+
+<ParamField query="page" type="integer" default="1">
+  ページ番号
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="20">
+  1ページあたりの結果数（最大: 100）
+</ParamField>
+
+<ParamField query="filters" type="object">
+  追加フィルタ条件
+</ParamField>
+
+<ParamField query="sort" type="string" default="relevance">
+  ソート順: `relevance`、`date`、`price`、`name`
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.example.com/api/v1/search?q=ワイヤレス&type=products&sort=relevance" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```python Python
+import requests
+
+url = "https://api.example.com/api/v1/search"
+headers = {"Authorization": "Bearer YOUR_API_KEY"}
+
+# 商品を検索
+params = {
+    "q": "ワイヤレス ヘッドホン",
+    "type": "products",
+    "per_page": 30,
+    "sort": "price"
+}
+
+response = requests.get(url, headers=headers, params=params)
+results = response.json()
+
+print(f"検索結果: {results['total_count']}件")
+for item in results['results']:
+    if item['type'] == 'product':
+        print(f"- {item['name']}: ¥{item['price']:,}")
+```
+
+```javascript JavaScript
+// 複数タイプを検索
+const params = new URLSearchParams({
+  q: 'ワイヤレス',
+  type: 'all',
+  per_page: '50'
+});
+
+const response = await fetch(
+  `https://api.example.com/api/v1/search?${params}`,
+  {
+    headers: {
+      'Authorization': 'Bearer YOUR_API_KEY'
+    }
+  }
+);
+
+const results = await response.json();
+
+// 結果をタイプ別に分類
+const byType = results.results.reduce((acc, item) => {
+  acc[item.type] = (acc[item.type] || 0) + 1;
+  return acc;
+}, {});
+
+console.log('検索結果:', byType);
+```
+
+```go Go
+package main
+
+import (
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "net/url"
+)
+
+func search(query string) {
+    baseURL := "https://api.example.com/api/v1/search"
+
+    params := url.Values{}
+    params.Add("q", query)
+    params.Add("type", "products")
+    params.Add("per_page", "20")
+
+    req, _ := http.NewRequest("GET", baseURL+"?"+params.Encode(), nil)
+    req.Header.Set("Authorization", "Bearer YOUR_API_KEY")
+
+    client := &http.Client{}
+    resp, _ := client.Do(req)
+    defer resp.Body.Close()
+
+    var result map[string]interface{}
+    json.NewDecoder(resp.Body).Decode(&result)
+
+    fmt.Printf("検索結果: %.0f件\n", result["total_count"])
+}
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 成功
+{
+  "query": "ワイヤレス",
+  "total_count": 127,
+  "search_time_ms": 45,
+  "results": [
+    {
+      "type": "product",
+      "id": "prod_123",
+      "name": "ワイヤレスヘッドホン Pro",
+      "description": "高品質なワイヤレスヘッドホン...",
+      "price": 29999,
+      "currency": "JPY",
+      "image_url": "https://example.com/products/prod_123/main.jpg",
+      "category": "電子機器",
+      "rating": 4.5,
+      "in_stock": true,
+      "relevance_score": 0.95,
+      "highlights": [
+        "<em>ワイヤレス</em>ヘッドホン Pro",
+        "高品質な<em>ワイヤレス</em>接続"
+      ]
+    },
+    {
+      "type": "product",
+      "id": "prod_124",
+      "name": "ワイヤレスイヤホン",
+      "description": "コンパクトなワイヤレスイヤホン...",
+      "price": 19999,
+      "currency": "JPY",
+      "image_url": "https://example.com/products/prod_124/main.jpg",
+      "category": "電子機器",
+      "rating": 4.3,
+      "in_stock": true,
+      "relevance_score": 0.92
+    },
+    {
+      "type": "user",
+      "id": "user_789",
+      "name": "ワイヤレス商店",
+      "type_label": "ユーザー",
+      "avatar_url": "https://example.com/avatars/user_789.jpg",
+      "relevance_score": 0.75
+    }
+  ],
+  "facets": {
+    "types": {
+      "products": 95,
+      "users": 12,
+      "orders": 20
+    },
+    "categories": {
+      "電子機器": 85,
+      "アクセサリー": 10
+    },
+    "price_ranges": {
+      "0-10000": 15,
+      "10000-30000": 60,
+      "30000-50000": 20
+    }
+  },
+  "suggestions": [
+    "ワイヤレスヘッドホン",
+    "ワイヤレスイヤホン",
+    "ワイヤレススピーカー"
+  ],
+  "pagination": {
+    "current_page": 1,
+    "per_page": 20,
+    "total_pages": 7
+  }
+}
+```
+
+```json 400 検索クエリが必要
+{
+  "error": {
+    "code": "MISSING_QUERY",
+    "message": "検索クエリパラメータ'q'が必要です"
+  }
+}
+```
+</ResponseExample>
+
+## 検索機能
+
+<CardGroup cols={2}>
+  <Card title="全文検索" icon="magnifying-glass">
+    商品名、説明、タグなどを横断的に検索
+  </Card>
+  <Card title="ファセット検索" icon="filter">
+    カテゴリ、価格帯、評価などでフィルタリング
+  </Card>
+  <Card title="オートコンプリート" icon="wand-magic-sparkles">
+    入力中に検索候補を表示
+  </Card>
+  <Card title="類似検索" icon="clone">
+    関連商品やおすすめを表示
+  </Card>
+</CardGroup>
+
+## 検索演算子
+
+<AccordionGroup>
+  <Accordion title="フレーズ検索">
+    `"ワイヤレス ヘッドホン"` - 完全一致フレーズを検索
+  </Accordion>
+
+  <Accordion title="AND検索">
+    `ワイヤレス AND ノイズキャンセリング` - 両方の単語を含む
+  </Accordion>
+
+  <Accordion title="OR検索">
+    `ワイヤレス OR 有線` - いずれかの単語を含む
+  </Accordion>
+
+  <Accordion title="NOT検索">
+    `ヘッドホン NOT 有線` - 特定の単語を除外
+  </Accordion>
+
+  <Accordion title="ワイルドカード">
+    `ワイヤ*` - 前方一致検索
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+検索結果はリアルタイムで更新されます。商品が追加または更新されると、即座に検索可能になります。
+</Tip>

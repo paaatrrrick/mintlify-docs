@@ -1,0 +1,219 @@
+---
+title: "支払い処理"
+api: "POST /api/v1/payments"
+description: "注文の支払いを処理します"
+---
+
+## ボディパラメータ
+
+<ParamField body="order_id" type="string" required>
+  支払いを処理する注文ID
+</ParamField>
+
+<ParamField body="payment_method" type="string" required>
+  支払い方法: `credit_card`、`debit_card`、`bank_transfer`、`convenience_store`、`mobile_payment`
+</ParamField>
+
+<ParamField body="payment_details" type="object" required>
+  支払い詳細
+  <Expandable title="クレジットカードの場合">
+    <ParamField body="card_number" type="string" required>
+      カード番号
+    </ParamField>
+    <ParamField body="card_holder" type="string" required>
+      カード名義人
+    </ParamField>
+    <ParamField body="expiry_month" type="string" required>
+      有効期限（月）
+    </ParamField>
+    <ParamField body="expiry_year" type="string" required>
+      有効期限（年）
+    </ParamField>
+    <ParamField body="cvv" type="string" required>
+      セキュリティコード
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="save_payment_method" type="boolean" default="false">
+  今後の使用のために支払い方法を保存
+</ParamField>
+
+<ParamField body="installments" type="integer">
+  分割払い回数（オプション: 3、6、12、24）
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.example.com/api/v1/payments \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "order_id": "order_123",
+    "payment_method": "credit_card",
+    "payment_details": {
+      "card_number": "4111111111111111",
+      "card_holder": "YAMADA TARO",
+      "expiry_month": "12",
+      "expiry_year": "2025",
+      "cvv": "123"
+    },
+    "save_payment_method": true,
+    "installments": 3
+  }'
+```
+
+```python Python
+import requests
+
+url = "https://api.example.com/api/v1/payments"
+headers = {
+    "Authorization": "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json"
+}
+data = {
+    "order_id": "order_123",
+    "payment_method": "credit_card",
+    "payment_details": {
+        "card_number": "4111111111111111",
+        "card_holder": "YAMADA TARO",
+        "expiry_month": "12",
+        "expiry_year": "2025",
+        "cvv": "123"
+    },
+    "save_payment_method": True,
+    "installments": 3
+}
+
+response = requests.post(url, json=data, headers=headers)
+payment = response.json()
+
+if payment['status'] == 'succeeded':
+    print(f"支払いが成功しました: ¥{payment['amount']:,}")
+    print(f"取引ID: {payment['transaction_id']}")
+else:
+    print(f"支払いが失敗しました: {payment['error_message']}")
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.example.com/api/v1/payments', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    order_id: 'order_123',
+    payment_method: 'credit_card',
+    payment_details: {
+      card_number: '4111111111111111',
+      card_holder: 'YAMADA TARO',
+      expiry_month: '12',
+      expiry_year: '2025',
+      cvv: '123'
+    },
+    save_payment_method: true,
+    installments: 3
+  })
+});
+
+const payment = await response.json();
+console.log(`支払いステータス: ${payment.status}`);
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 成功
+{
+  "id": "pay_789",
+  "order_id": "order_123",
+  "transaction_id": "txn_abc123xyz",
+  "amount": 59998,
+  "currency": "JPY",
+  "payment_method": "credit_card",
+  "card_info": {
+    "brand": "Visa",
+    "last4": "1111",
+    "expiry": "12/2025"
+  },
+  "installments": {
+    "count": 3,
+    "monthly_amount": 19999,
+    "total_interest": 0
+  },
+  "status": "succeeded",
+  "payment_method_saved": true,
+  "receipt_url": "https://example.com/receipts/pay_789",
+  "refundable": true,
+  "refund_deadline": "2024-02-20T15:30:00Z",
+  "processed_at": "2024-01-20T15:30:00Z"
+}
+```
+
+```json 402 支払い失敗
+{
+  "error": {
+    "code": "PAYMENT_FAILED",
+    "message": "支払い処理に失敗しました",
+    "reason": "insufficient_funds",
+    "description": "カードの残高が不足しています"
+  }
+}
+```
+
+```json 400 無効なカード
+{
+  "error": {
+    "code": "INVALID_CARD",
+    "message": "カード情報が無効です",
+    "details": [
+      {
+        "field": "card_number",
+        "message": "カード番号が無効です"
+      },
+      {
+        "field": "cvv",
+        "message": "セキュリティコードが無効です"
+      }
+    ]
+  }
+}
+```
+
+```json 400 期限切れ
+{
+  "error": {
+    "code": "CARD_EXPIRED",
+    "message": "カードの有効期限が切れています"
+  }
+}
+```
+</ResponseExample>
+
+## 支払い方法の種類
+
+<AccordionGroup>
+  <Accordion title="クレジットカード">
+    Visa、Mastercard、JCB、American Express、Diners Clubに対応
+  </Accordion>
+
+  <Accordion title="コンビニ決済">
+    セブンイレブン、ファミリーマート、ローソンで支払い可能
+  </Accordion>
+
+  <Accordion title="銀行振込">
+    指定の銀行口座への振込。通常1〜3営業日で確認
+  </Accordion>
+
+  <Accordion title="モバイル決済">
+    PayPay、LINE Pay、楽天ペイに対応
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+クレジットカード情報は暗号化されて送信されます。システムにはカード情報は保存されません。
+</Warning>
+
+<Tip>
+分割払いは手数料無料でご利用いただけます（3回、6回、12回払い）。
+</Tip>

@@ -1,0 +1,204 @@
+---
+title: "商品一覧の取得"
+api: "GET /api/v1/products"
+description: "ページネーション付きで商品一覧を取得します"
+---
+
+## クエリパラメータ
+
+<ParamField query="page" type="integer" default="1">
+  ページ番号
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="20">
+  1ページあたりのアイテム数（最大: 100）
+</ParamField>
+
+<ParamField query="category" type="string">
+  カテゴリースラッグでフィルタ
+</ParamField>
+
+<ParamField query="status" type="string">
+  ステータスでフィルタ: `active`、`inactive`、`out_of_stock`
+</ParamField>
+
+<ParamField query="min_price" type="number">
+  最小価格でフィルタ
+</ParamField>
+
+<ParamField query="max_price" type="number">
+  最大価格でフィルタ
+</ParamField>
+
+<ParamField query="search" type="string">
+  商品名または説明で検索
+</ParamField>
+
+<ParamField query="tags" type="string">
+  タグでフィルタ（カンマ区切り）
+</ParamField>
+
+<ParamField query="sort_by" type="string" default="created_at">
+  ソートフィールド: `name`、`price`、`created_at`、`popularity`
+</ParamField>
+
+<ParamField query="order" type="string" default="desc">
+  ソート順: `asc`または`desc`
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.example.com/api/v1/products?category=electronics&min_price=10000&max_price=50000" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```python Python
+import requests
+
+url = "https://api.example.com/api/v1/products"
+headers = {"Authorization": "Bearer YOUR_API_KEY"}
+params = {
+    "category": "electronics",
+    "min_price": 10000,
+    "max_price": 50000,
+    "status": "active",
+    "page": 1,
+    "per_page": 20,
+    "sort_by": "price",
+    "order": "asc"
+}
+
+response = requests.get(url, headers=headers, params=params)
+products = response.json()
+
+for product in products['data']:
+    print(f"{product['name']}: ¥{product['price']}")
+```
+
+```javascript JavaScript
+const params = new URLSearchParams({
+  category: 'electronics',
+  min_price: '10000',
+  max_price: '50000',
+  status: 'active',
+  page: '1',
+  per_page: '20',
+  sort_by: 'price',
+  order: 'asc'
+});
+
+const response = await fetch(
+  `https://api.example.com/api/v1/products?${params}`,
+  {
+    headers: {
+      'Authorization': 'Bearer YOUR_API_KEY'
+    }
+  }
+);
+
+const data = await response.json();
+console.log(`${data.pagination.total_count}件の商品が見つかりました`);
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 成功
+{
+  "data": [
+    {
+      "id": "prod_123",
+      "name": "ワイヤレスヘッドホン",
+      "description": "ノイズキャンセリング機能付き高品質ワイヤレスヘッドホン",
+      "price": 29999,
+      "currency": "JPY",
+      "category": {
+        "id": "cat_456",
+        "name": "電子機器",
+        "slug": "electronics"
+      },
+      "images": [
+        "https://example.com/products/prod_123/image1.jpg",
+        "https://example.com/products/prod_123/image2.jpg"
+      ],
+      "stock_quantity": 50,
+      "status": "active",
+      "tags": ["オーディオ", "ワイヤレス", "ノイズキャンセリング"],
+      "rating": 4.5,
+      "review_count": 128,
+      "created_at": "2024-01-10T09:00:00Z",
+      "updated_at": "2024-01-15T14:30:00Z"
+    },
+    {
+      "id": "prod_124",
+      "name": "スマートウォッチ",
+      "description": "心拍数モニター付きフィットネストラッキングスマートウォッチ",
+      "price": 39999,
+      "currency": "JPY",
+      "category": {
+        "id": "cat_456",
+        "name": "電子機器",
+        "slug": "electronics"
+      },
+      "images": [
+        "https://example.com/products/prod_124/image1.jpg"
+      ],
+      "stock_quantity": 25,
+      "status": "active",
+      "tags": ["ウェアラブル", "フィットネス", "健康"],
+      "rating": 4.7,
+      "review_count": 256,
+      "created_at": "2024-01-12T11:00:00Z",
+      "updated_at": "2024-01-18T16:45:00Z"
+    }
+  ],
+  "pagination": {
+    "current_page": 1,
+    "per_page": 20,
+    "total_pages": 5,
+    "total_count": 95,
+    "has_next": true,
+    "has_prev": false
+  },
+  "filters_applied": {
+    "category": "electronics",
+    "min_price": 10000,
+    "max_price": 50000,
+    "status": "active"
+  }
+}
+```
+</ResponseExample>
+
+## フィルタリング例
+
+<CodeGroup>
+```bash カテゴリでフィルタ
+curl -X GET "https://api.example.com/api/v1/products?category=electronics" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```bash 商品を検索
+curl -X GET "https://api.example.com/api/v1/products?search=ワイヤレス" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```bash 価格範囲
+curl -X GET "https://api.example.com/api/v1/products?min_price=10000&max_price=30000" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```bash 価格でソート
+curl -X GET "https://api.example.com/api/v1/products?sort_by=price&order=asc" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```bash 人気順
+curl -X GET "https://api.example.com/api/v1/products?sort_by=popularity&order=desc" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```bash タグでフィルタ
+curl -X GET "https://api.example.com/api/v1/products?tags=ワイヤレス,オーディオ" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
