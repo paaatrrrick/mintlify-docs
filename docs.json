@@ -2,6 +2,9 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Mint Starter Kit",
+  "banner": {
+    "content": "This is a banner345"
+  },
   "colors": {
     "primary": "#16A34A",
     "light": "#07C983",
