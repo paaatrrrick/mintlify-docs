@@ -1,0 +1,341 @@
+---
+title: "Database Optimization"
+description: "Master database optimization techniques for better performance"
+---
+
+# Database Optimization
+
+Optimizing your database is crucial for application performance. This comprehensive guide covers indexing, query optimization, and more.
+
+## Indexing Strategies
+
+### B-Tree Indexes
+
+The most common index type, perfect for equality and range queries:
+
+```sql
+-- Create a single-column index
+CREATE INDEX idx_users_email ON users(email);
+
+-- Create a composite index
+CREATE INDEX idx_orders_user_date ON orders(user_id, order_date);
+
+-- Create a unique index
+CREATE UNIQUE INDEX idx_products_sku ON products(sku);
+
+-- Analyze index usage
+EXPLAIN ANALYZE
+SELECT * FROM users WHERE email = 'user@example.com';
+```
+
+### Hash Indexes
+
+Optimized for equality comparisons:
+
+```sql
+-- PostgreSQL hash index
+CREATE INDEX idx_sessions_token ON sessions USING HASH(token);
+
+-- Use case: exact match lookups
+SELECT * FROM sessions WHERE token = 'abc123xyz';
+```
+
+### Partial Indexes
+
+Index only rows that meet specific conditions:
+
+```sql
+-- Index only active users
+CREATE INDEX idx_active_users ON users(created_at)
+WHERE status = 'active';
+
+-- Index only recent orders
+CREATE INDEX idx_recent_orders ON orders(order_date)
+WHERE order_date > '2024-01-01';
+```
+
+## Query Optimization
+
+### Analyzing Query Performance
+
+```sql
+-- PostgreSQL
+EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
+SELECT u.name, COUNT(o.id) as order_count
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+WHERE u.created_at > NOW() - INTERVAL '1 year'
+GROUP BY u.id, u.name
+HAVING COUNT(o.id) > 5
+ORDER BY order_count DESC
+LIMIT 100;
+
+-- MySQL
+EXPLAIN FORMAT=JSON
+SELECT * FROM products
+WHERE category_id IN (1, 2, 3)
+AND price BETWEEN 10 AND 100;
+```
+
+### N+1 Query Problem
+
+Avoid the infamous N+1 query problem:
+
+```python
+# Bad: N+1 queries
+users = User.query.all()
+for user in users:
+    print(user.orders)  # Triggers a query for each user!
+
+# Good: Single query with join
+users = User.query.options(
+    joinedload(User.orders)
+).all()
+
+# Good: Separate query with IN clause
+users = User.query.all()
+user_ids = [u.id for u in users]
+orders = Order.query.filter(Order.user_id.in_(user_ids)).all()
+```
+
+### Batch Operations
+
+Process data in batches for better performance:
+
+```javascript
+// Bad: Individual inserts
+for (const user of users) {
+  await db.query('INSERT INTO users (name, email) VALUES ($1, $2)',
+    [user.name, user.email]);
+}
+
+// Good: Batch insert
+const values = users.map(u => `('${u.name}', '${u.email}')`).join(',');
+await db.query(`INSERT INTO users (name, email) VALUES ${values}`);
+
+// Better: Parameterized batch insert
+const query = `
+  INSERT INTO users (name, email)
+  SELECT * FROM UNNEST($1::text[], $2::text[])
+`;
+await db.query(query, [
+  users.map(u => u.name),
+  users.map(u => u.email)
+]);
+```
+
+## Connection Pooling
+
+```go
+package database
+
+import (
+    "database/sql"
+    "time"
+
+    _ "github.com/lib/pq"
+)
+
+type Config struct {
+    MaxOpenConns    int
+    MaxIdleConns    int
+    ConnMaxLifetime time.Duration
+    ConnMaxIdleTime time.Duration
+}
+
+func NewPool(dsn string, config Config) (*sql.DB, error) {
+    db, err := sql.Open("postgres", dsn)
+    if err != nil {
+        return nil, err
+    }
+
+    // Set connection pool settings
+    db.SetMaxOpenConns(config.MaxOpenConns)           // Max connections
+    db.SetMaxIdleConns(config.MaxIdleConns)           // Idle connections
+    db.SetConnMaxLifetime(config.ConnMaxLifetime)     // Connection lifetime
+    db.SetConnMaxIdleTime(config.ConnMaxIdleTime)     // Idle timeout
+
+    // Verify connection
+    if err := db.Ping(); err != nil {
+        return nil, err
+    }
+
+    return db, nil
+}
+
+// Usage
+func main() {
+    db, err := NewPool("postgresql://...", Config{
+        MaxOpenConns:    25,
+        MaxIdleConns:    5,
+        ConnMaxLifetime: time.Hour,
+        ConnMaxIdleTime: 10 * time.Minute,
+    })
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+}
+```
+
+## Denormalization
+
+When to denormalize for performance:
+
+```sql
+-- Normalized structure (3 joins required)
+SELECT u.name, p.title, c.content
+FROM users u
+JOIN posts p ON u.id = p.user_id
+JOIN comments c ON p.id = c.post_id;
+
+-- Denormalized structure (no joins)
+CREATE TABLE comment_details AS
+SELECT
+    c.id,
+    c.content,
+    c.created_at,
+    u.name as user_name,
+    u.avatar_url,
+    p.title as post_title,
+    p.slug as post_slug
+FROM comments c
+JOIN users u ON c.user_id = u.id
+JOIN posts p ON c.post_id = p.id;
+
+-- Materialized view for read-heavy queries
+CREATE MATERIALIZED VIEW user_statistics AS
+SELECT
+    u.id,
+    u.name,
+    COUNT(DISTINCT p.id) as post_count,
+    COUNT(DISTINCT c.id) as comment_count,
+    AVG(p.views) as avg_post_views
+FROM users u
+LEFT JOIN posts p ON u.id = p.user_id
+LEFT JOIN comments c ON u.id = c.user_id
+GROUP BY u.id, u.name;
+
+-- Refresh periodically
+REFRESH MATERIALIZED VIEW CONCURRENTLY user_statistics;
+```
+
+## Partitioning
+
+Split large tables for better performance:
+
+```sql
+-- Range partitioning by date
+CREATE TABLE orders (
+    id BIGSERIAL,
+    user_id INTEGER,
+    order_date DATE,
+    total_amount DECIMAL(10, 2)
+) PARTITION BY RANGE (order_date);
+
+-- Create partitions
+CREATE TABLE orders_2024_q1 PARTITION OF orders
+    FOR VALUES FROM ('2024-01-01') TO ('2024-04-01');
+
+CREATE TABLE orders_2024_q2 PARTITION OF orders
+    FOR VALUES FROM ('2024-04-01') TO ('2024-07-01');
+
+CREATE TABLE orders_2024_q3 PARTITION OF orders
+    FOR VALUES FROM ('2024-07-01') TO ('2024-10-01');
+
+-- List partitioning by category
+CREATE TABLE products (
+    id SERIAL,
+    name VARCHAR(255),
+    category VARCHAR(50)
+) PARTITION BY LIST (category);
+
+CREATE TABLE products_electronics PARTITION OF products
+    FOR VALUES IN ('electronics', 'computers', 'phones');
+
+CREATE TABLE products_clothing PARTITION OF products
+    FOR VALUES IN ('clothing', 'shoes', 'accessories');
+```
+
+## Monitoring and Maintenance
+
+```python
+import psycopg2
+from datetime import datetime
+
+class DatabaseMonitor:
+    def __init__(self, connection_string):
+        self.conn = psycopg2.connect(connection_string)
+
+    def check_index_usage(self):
+        """Find unused indexes"""
+        query = """
+        SELECT
+            schemaname,
+            tablename,
+            indexname,
+            idx_scan,
+            pg_size_pretty(pg_relation_size(indexrelid)) as size
+        FROM pg_stat_user_indexes
+        WHERE idx_scan = 0
+        AND indexrelname NOT LIKE 'pg_toast%'
+        ORDER BY pg_relation_size(indexrelid) DESC;
+        """
+        cursor = self.conn.cursor()
+        cursor.execute(query)
+        return cursor.fetchall()
+
+    def find_missing_indexes(self):
+        """Identify potential missing indexes"""
+        query = """
+        SELECT
+            schemaname,
+            tablename,
+            attname,
+            n_distinct,
+            correlation
+        FROM pg_stats
+        WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+        AND n_distinct > 100
+        AND correlation < 0.1
+        ORDER BY n_distinct DESC;
+        """
+        cursor = self.conn.cursor()
+        cursor.execute(query)
+        return cursor.fetchall()
+
+    def vacuum_analyze(self, table_name=None):
+        """Run VACUUM ANALYZE"""
+        cursor = self.conn.cursor()
+        if table_name:
+            cursor.execute(f"VACUUM ANALYZE {table_name};")
+        else:
+            cursor.execute("VACUUM ANALYZE;")
+        self.conn.commit()
+
+    def get_table_bloat(self):
+        """Check for table bloat"""
+        query = """
+        SELECT
+            schemaname,
+            tablename,
+            pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size,
+            pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename) -
+                          pg_relation_size(schemaname||'.'||tablename)) as external_size
+        FROM pg_tables
+        WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+        ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
+        LIMIT 20;
+        """
+        cursor = self.conn.cursor()
+        cursor.execute(query)
+        return cursor.fetchall()
+```
+
+<Warning>
+  Always test database optimizations in a staging environment before applying to production. Some changes can cause temporary performance degradation during implementation.
+</Warning>
+
+<Info>
+  Regular maintenance is key. Schedule VACUUM, ANALYZE, and REINDEX operations during low-traffic periods.
+</Info>

@@ -1,0 +1,441 @@
+---
+title: "AWS S3 Integration"
+description: "Store and retrieve files using Amazon S3"
+icon: "aws"
+---
+
+# AWS S3 Integration
+
+Learn how to integrate AWS S3 for file storage, uploads, and management in your applications.
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
+```
+
+```bash yarn
+yarn add @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
+```
+
+```bash pnpm
+pnpm add @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
+```
+</CodeGroup>
+
+## Configuration
+
+### Environment Variables
+
+```bash
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_S3_BUCKET=your-bucket-name
+```
+
+### Initialize S3 Client
+
+```typescript
+// lib/s3.ts
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  ListObjectsV2Command
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
+export const s3Client = new S3Client({
+  region: process.env.AWS_REGION!,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
+  }
+});
+
+export const BUCKET_NAME = process.env.AWS_S3_BUCKET!;
+```
+
+## File Upload
+
+### Direct Upload
+
+```typescript
+import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { s3Client, BUCKET_NAME } from './lib/s3';
+import { v4 as uuidv4 } from 'uuid';
+
+export async function uploadFile(
+  file: Buffer,
+  fileName: string,
+  contentType: string
+) {
+  const key = `uploads/${uuidv4()}-${fileName}`;
+
+  const command = new PutObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: key,
+    Body: file,
+    ContentType: contentType,
+    Metadata: {
+      uploadedAt: new Date().toISOString()
+    }
+  });
+
+  try {
+    await s3Client.send(command);
+
+    return {
+      success: true,
+      key,
+      url: `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`
+    };
+  } catch (error) {
+    console.error('Upload error:', error);
+    throw error;
+  }
+}
+```
+
+### Upload with Express/Multer
+
+```typescript
+import express from 'express';
+import multer from 'multer';
+import { uploadFile } from './lib/s3';
+
+const app = express();
+const upload = multer({ storage: multer.memoryStorage() });
+
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    const result = await uploadFile(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype
+    );
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Upload failed' });
+  }
+});
+```
+
+### Presigned URL Upload
+
+```typescript
+import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { s3Client, BUCKET_NAME } from './lib/s3';
+
+export async function generateUploadUrl(
+  fileName: string,
+  fileType: string
+): Promise<{ uploadUrl: string; key: string }> {
+  const key = `uploads/${uuidv4()}-${fileName}`;
+
+  const command = new PutObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: key,
+    ContentType: fileType
+  });
+
+  const uploadUrl = await getSignedUrl(s3Client, command, {
+    expiresIn: 3600 // URL expires in 1 hour
+  });
+
+  return { uploadUrl, key };
+}
+
+// API Route
+app.post('/api/upload-url', async (req, res) => {
+  const { fileName, fileType } = req.body;
+
+  try {
+    const { uploadUrl, key } = await generateUploadUrl(fileName, fileType);
+
+    res.json({ uploadUrl, key });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate upload URL' });
+  }
+});
+```
+
+### Client-Side Upload with Presigned URL
+
+```typescript
+// Client-side code
+async function uploadFileToS3(file: File) {
+  // Get presigned URL from server
+  const response = await fetch('/api/upload-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fileName: file.name,
+      fileType: file.type
+    })
+  });
+
+  const { uploadUrl, key } = await response.json();
+
+  // Upload directly to S3
+  await fetch(uploadUrl, {
+    method: 'PUT',
+    body: file,
+    headers: {
+      'Content-Type': file.type
+    }
+  });
+
+  return key;
+}
+```
+
+## File Download
+
+### Generate Download URL
+
+```typescript
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
+export async function generateDownloadUrl(key: string): Promise<string> {
+  const command = new GetObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: key
+  });
+
+  const url = await getSignedUrl(s3Client, command, {
+    expiresIn: 3600 // URL expires in 1 hour
+  });
+
+  return url;
+}
+
+// API Route
+app.get('/api/download/:key', async (req, res) => {
+  try {
+    const url = await generateDownloadUrl(req.params.key);
+    res.json({ url });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate download URL' });
+  }
+});
+```
+
+### Stream File Download
+
+```typescript
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { Readable } from 'stream';
+
+app.get('/api/files/:key', async (req, res) => {
+  try {
+    const command = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: req.params.key
+    });
+
+    const response = await s3Client.send(command);
+
+    res.setHeader('Content-Type', response.ContentType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${req.params.key}"`);
+
+    // Stream the file
+    const stream = response.Body as Readable;
+    stream.pipe(res);
+  } catch (error) {
+    res.status(404).json({ error: 'File not found' });
+  }
+});
+```
+
+## File Management
+
+### List Files
+
+```typescript
+import { ListObjectsV2Command } from '@aws-sdk/client-s3';
+
+export async function listFiles(prefix: string = '', maxKeys: number = 100) {
+  const command = new ListObjectsV2Command({
+    Bucket: BUCKET_NAME,
+    Prefix: prefix,
+    MaxKeys: maxKeys
+  });
+
+  try {
+    const response = await s3Client.send(command);
+
+    return {
+      files: response.Contents?.map(item => ({
+        key: item.Key,
+        size: item.Size,
+        lastModified: item.LastModified,
+        etag: item.ETag
+      })) || [],
+      isTruncated: response.IsTruncated,
+      nextContinuationToken: response.NextContinuationToken
+    };
+  } catch (error) {
+    console.error('List files error:', error);
+    throw error;
+  }
+}
+```
+
+### Delete File
+
+```typescript
+import { DeleteObjectCommand } from '@aws-sdk/client-s3';
+
+export async function deleteFile(key: string) {
+  const command = new DeleteObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: key
+  });
+
+  try {
+    await s3Client.send(command);
+    return { success: true };
+  } catch (error) {
+    console.error('Delete error:', error);
+    throw error;
+  }
+}
+
+// API Route
+app.delete('/api/files/:key', async (req, res) => {
+  try {
+    await deleteFile(req.params.key);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Delete failed' });
+  }
+});
+```
+
+### Copy File
+
+```typescript
+import { CopyObjectCommand } from '@aws-sdk/client-s3';
+
+export async function copyFile(sourceKey: string, destinationKey: string) {
+  const command = new CopyObjectCommand({
+    Bucket: BUCKET_NAME,
+    CopySource: `${BUCKET_NAME}/${sourceKey}`,
+    Key: destinationKey
+  });
+
+  try {
+    await s3Client.send(command);
+    return { success: true, newKey: destinationKey };
+  } catch (error) {
+    console.error('Copy error:', error);
+    throw error;
+  }
+}
+```
+
+## Image Processing
+
+### Upload with Image Optimization
+
+```typescript
+import sharp from 'sharp';
+
+export async function uploadImage(
+  imageBuffer: Buffer,
+  fileName: string
+) {
+  // Optimize image
+  const optimizedImage = await sharp(imageBuffer)
+    .resize(1920, 1080, {
+      fit: 'inside',
+      withoutEnlargement: true
+    })
+    .jpeg({ quality: 85 })
+    .toBuffer();
+
+  // Create thumbnail
+  const thumbnail = await sharp(imageBuffer)
+    .resize(200, 200, {
+      fit: 'cover'
+    })
+    .jpeg({ quality: 80 })
+    .toBuffer();
+
+  const key = `images/${uuidv4()}-${fileName}`;
+  const thumbnailKey = `thumbnails/${uuidv4()}-${fileName}`;
+
+  // Upload both
+  await Promise.all([
+    uploadFile(optimizedImage, key, 'image/jpeg'),
+    uploadFile(thumbnail, thumbnailKey, 'image/jpeg')
+  ]);
+
+  return { key, thumbnailKey };
+}
+```
+
+## Bucket Policies
+
+### Public Read Access
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadGetObject",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::your-bucket-name/public/*"
+    }
+  ]
+}
+```
+
+### CORS Configuration
+
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
+    "AllowedOrigins": ["https://yourdomain.com"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Presigned URLs" icon="link">
+    Generate presigned URLs for secure, time-limited access to files
+  </Card>
+  <Card title="Organize with Prefixes" icon="folder">
+    Use folder-like prefixes to organize files logically
+  </Card>
+  <Card title="Enable Versioning" icon="clock-rotate-left">
+    Turn on versioning to protect against accidental deletions
+  </Card>
+  <Card title="Set Lifecycle Rules" icon="recycle">
+    Automatically archive or delete old files to save costs
+  </Card>
+</CardGroup>
+
+<Tip>
+Consider using CloudFront CDN in front of S3 for better performance and lower costs for frequently accessed files.
+</Tip>

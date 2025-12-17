@@ -1,0 +1,131 @@
+---
+title: "認証ガイド"
+description: "アプリケーションでの認証実装の完全ガイド"
+---
+
+# 認証の概要
+
+認証は、現代のアプリケーションにおいて重要なコンポーネントです。このガイドでは、さまざまな認証方法とベストプラクティスについて説明します。
+
+## 認証方法
+
+### JWT認証
+
+JSON Web Token（JWT）は、最新のAPIに最適なステートレスな認証メカニズムを提供します。
+
+```javascript
+const jwt = require('jsonwebtoken');
+
+function generateToken(userId) {
+  return jwt.sign(
+    { userId: userId },
+    process.env.JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+}
+
+function verifyToken(token) {
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    throw new Error('無効なトークンです');
+  }
+}
+```
+
+### OAuth 2.0
+
+OAuth 2.0は、認可のための業界標準プロトコルです。実装方法は以下の通りです：
+
+```python
+from flask import Flask, redirect, url_for
+from authlib.integrations.flask_client import OAuth
+
+app = Flask(__name__)
+oauth = OAuth(app)
+
+oauth.register(
+    name='google',
+    client_id='YOUR_CLIENT_ID',
+    client_secret='YOUR_CLIENT_SECRET',
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
+
+@app.route('/login')
+def login():
+    redirect_uri = url_for('authorize', _external=True)
+    return oauth.google.authorize_redirect(redirect_uri)
+```
+
+## ベストプラクティス
+
+<AccordionGroup>
+  <Accordion title="すべての場所でHTTPSを使用">
+    本番環境では常にHTTPSを使用して、転送中の認証情報を保護します。暗号化されていない接続で認証トークンを送信しないでください。
+  </Accordion>
+
+  <Accordion title="レート制限の実装">
+    ブルートフォース攻撃から認証エンドポイントを保護するために、レート制限を実装します。
+  </Accordion>
+
+  <Accordion title="パスワードを安全に保存">
+    常にbcryptまたはArgon2を使用してパスワードをハッシュ化します。平文パスワードを保存しないでください。
+  </Accordion>
+</AccordionGroup>
+
+## パスワードのハッシュ化
+
+```go
+package main
+
+import (
+    "golang.org/x/crypto/bcrypt"
+)
+
+func HashPassword(password string) (string, error) {
+    bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+    return string(bytes), err
+}
+
+func CheckPasswordHash(password, hash string) bool {
+    err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+    return err == nil
+}
+```
+
+## 多要素認証
+
+MFAで追加のセキュリティ層を追加：
+
+```typescript
+import * as speakeasy from 'speakeasy';
+import * as QRCode from 'qrcode';
+
+async function generateMFASecret(userEmail: string) {
+  const secret = speakeasy.generateSecret({
+    name: `YourApp (${userEmail})`,
+    length: 32
+  });
+
+  const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
+
+  return {
+    secret: secret.base32,
+    qrCode: qrCodeUrl
+  };
+}
+
+function verifyMFAToken(secret: string, token: string): boolean {
+  return speakeasy.totp.verify({
+    secret: secret,
+    encoding: 'base32',
+    token: token,
+    window: 2
+  });
+}
+```
+
+<Warning>
+  常にサーバー側でMFAトークンを検証してください。クライアント側の検証だけに頼らないでください。
+</Warning>

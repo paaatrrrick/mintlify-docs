@@ -18,30 +18,266 @@
       "auth": {
         "method": "bearer"
       }
+    },
+    "examples": {
+      "languages": [
+        "bash",
+        "python",
+        "javascript",
+        "node",
+        "php",
+        "go",
+        "java",
+        "ruby",
+        "powershell",
+        "swift"
+      ]
     }
   },
   "navigation": {
-    "tabs": [
+    "languages": [
       {
-        "tab": "Guidessss",
-        "groups": [
+        "language": "en",
+        "tabs": [
           {
-            "group": "Getting started",
-            "pages": ["index", "fast", "quickstart"]
+            "tab": "Guides",
+            "groups": [
+              {
+                "group": "Getting Started",
+                "pages": ["index", "fast", "quickstart"]
+              },
+              {
+                "group": "Development Guides",
+                "icon": "book",
+                "pages": [
+                  "guides/authentication",
+                  "guides/caching",
+                  "guides/database-optimization",
+                  "guides/api-design",
+                  "guides/websockets",
+                  "guides/testing"
+                ]
+              },
+              {
+                "group": "Infrastructure",
+                "icon": "server",
+                "pages": [
+                  "guides/microservices",
+                  "guides/docker-kubernetes",
+                  "guides/monitoring",
+                  "guides/ci-cd"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Tutorials",
+            "groups": [
+              {
+                "group": "Step-by-Step Tutorials",
+                "icon": "graduation-cap",
+                "pages": [
+                  "tutorials/building-rest-api",
+                  "tutorials/react-app"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "API Reference",
+            "groups": [
+              {
+                "group": "User Management",
+                "icon": "user",
+                "pages": [
+                  "api/get-users",
+                  "api/create-user",
+                  "api/update-user",
+                  "api/delete-user"
+                ]
+              },
+              {
+                "group": "Products",
+                "icon": "box",
+                "pages": [
+                  "api/list-products"
+                ]
+              },
+              {
+                "group": "Orders",
+                "icon": "shopping-cart",
+                "pages": [
+                  "api/list-orders",
+                  "api/create-order"
+                ]
+              },
+              {
+                "group": "Other",
+                "pages": [
+                  "api/trigger"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Integrations",
+            "groups": [
+              {
+                "group": "Payment & Cloud",
+                "icon": "plug",
+                "pages": [
+                  "integrations/stripe",
+                  "integrations/aws-s3",
+                  "integrations/sendgrid"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Advanced",
+            "groups": [
+              {
+                "group": "Advanced Topics",
+                "icon": "flask",
+                "pages": [
+                  "advanced/performance",
+                  "advanced/security"
+                ]
+              }
+            ]
           }
         ]
       },
       {
-        "tab": "API reference",
-        "groups": [{"group": "API reference", "pages": ["api/trigger"]}]
+        "language": "ja",
+        "tabs": [
+          {
+            "tab": "ガイド",
+            "groups": [
+              {
+                "group": "はじめに",
+                "pages": ["ja/index"]
+              },
+              {
+                "group": "開発ガイド",
+                "icon": "book",
+                "pages": [
+                  "ja/guides/authentication"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "APIリファレンス",
+            "groups": [
+              {
+                "group": "ユーザー管理",
+                "icon": "user",
+                "pages": [
+                  "ja/api/get-users",
+                  "ja/api/create-user"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "language": "es",
+        "tabs": [
+          {
+            "tab": "Guías",
+            "groups": [
+              {
+                "group": "Comenzando",
+                "pages": ["es/index"]
+              }
+            ]
+          },
+          {
+            "tab": "Referencia API",
+            "groups": [
+              {
+                "group": "Gestión de Usuarios",
+                "icon": "user",
+                "pages": [
+                  "es/api/get-users",
+                  "es/api/create-user"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "language": "fr",
+        "tabs": [
+          {
+            "tab": "Guides",
+            "groups": [
+              {
+                "group": "Commencer",
+                "pages": ["fr/index"]
+              }
+            ]
+          },
+          {
+            "tab": "Référence API",
+            "groups": [
+              {
+                "group": "Gestion des Utilisateurs",
+                "icon": "user",
+                "pages": [
+                  "fr/api/get-users"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "language": "zh",
+        "tabs": [
+          {
+            "tab": "指南",
+            "groups": [
+              {
+                "group": "开始",
+                "pages": ["zh/index"]
+              }
+            ]
+          },
+          {
+            "tab": "API参考",
+            "groups": [
+              {
+                "group": "用户管理",
+                "icon": "user",
+                "pages": [
+                  "zh/api/get-users"
+                ]
+              }
+            ]
+          }
+        ]
       }
     ],
     "global": {
       "anchors": [
         {
+          "anchor": "Community",
+          "href": "https://discord.gg/example",
+          "icon": "discord"
+        },
+        {
           "anchor": "Blog",
           "href": "https://mintlify.com/blog",
           "icon": "newspaper"
+        },
+        {
+          "anchor": "GitHub",
+          "href": "https://github.com/mintlify",
+          "icon": "github"
         }
       ]
     }

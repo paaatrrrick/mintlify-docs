@@ -1,0 +1,451 @@
+---
+title: "Performance Optimization"
+description: "Advanced techniques for optimizing application performance"
+---
+
+# Performance Optimization
+
+Master advanced performance optimization techniques for building lightning-fast applications.
+
+## Profiling and Monitoring
+
+### Node.js Profiling
+
+```javascript
+// Profile CPU usage
+const { performance } = require('perf_hooks');
+
+function profileFunction(fn, ...args) {
+  const start = performance.now();
+  const result = fn(...args);
+  const end = performance.now();
+
+  console.log(`Execution time: ${(end - start).toFixed(2)}ms`);
+  return result;
+}
+
+// Using Node.js built-in profiler
+// Run with: node --prof app.js
+// Analyze with: node --prof-process isolate-*.log
+
+// Using clinic.js
+// npm install -g clinic
+// clinic doctor -- node app.js
+// clinic flame -- node app.js
+// clinic bubbleprof -- node app.js
+```
+
+### Memory Profiling
+
+```javascript
+// Track memory usage
+function getMemoryUsage() {
+  const usage = process.memoryUsage();
+  return {
+    rss: `${Math.round(usage.rss / 1024 / 1024)}MB`,
+    heapTotal: `${Math.round(usage.heapTotal / 1024 / 1024)}MB`,
+    heapUsed: `${Math.round(usage.heapUsed / 1024 / 1024)}MB`,
+    external: `${Math.round(usage.external / 1024 / 1024)}MB`
+  };
+}
+
+// Detect memory leaks
+const memwatch = require('@airbnb/node-memwatch');
+
+memwatch.on('leak', (info) => {
+  console.error('Memory leak detected:', info);
+});
+
+memwatch.on('stats', (stats) => {
+  console.log('GC stats:', stats);
+});
+```
+
+## Database Optimization
+
+### Connection Pooling
+
+```python
+from sqlalchemy import create_engine, pool
+
+# Configure connection pool
+engine = create_engine(
+    'postgresql://user:pass@localhost/db',
+    poolclass=pool.QueuePool,
+    pool_size=20,
+    max_overflow=0,
+    pool_timeout=30,
+    pool_recycle=3600,
+    pool_pre_ping=True
+)
+
+# Monitor pool status
+def get_pool_status():
+    return {
+        'size': engine.pool.size(),
+        'checked_in': engine.pool.checkedin(),
+        'checked_out': engine.pool.checkedout(),
+        'overflow': engine.pool.overflow()
+    }
+```
+
+### Query Optimization
+
+```sql
+-- Add indexes for frequently queried columns
+CREATE INDEX CONCURRENTLY idx_users_email ON users(email);
+CREATE INDEX CONCURRENTLY idx_orders_user_date ON orders(user_id, created_at DESC);
+
+-- Composite index for multi-column queries
+CREATE INDEX CONCURRENTLY idx_products_category_price
+ON products(category_id, price)
+WHERE status = 'active';
+
+-- Covering index (includes all needed columns)
+CREATE INDEX CONCURRENTLY idx_users_covering
+ON users(email) INCLUDE (name, created_at);
+
+-- Analyze query performance
+EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
+SELECT u.name, COUNT(o.id) as order_count
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+WHERE u.created_at > NOW() - INTERVAL '1 year'
+GROUP BY u.id, u.name
+HAVING COUNT(o.id) > 5;
+```
+
+### Batch Operations
+
+```typescript
+// Bad: N queries
+for (const user of users) {
+  await db.orders.findMany({ where: { userId: user.id } });
+}
+
+// Good: Single query with IN clause
+const userIds = users.map(u => u.id);
+const orders = await db.orders.findMany({
+  where: { userId: { in: userIds } }
+});
+
+// Group orders by userId
+const ordersByUser = orders.reduce((acc, order) => {
+  if (!acc[order.userId]) acc[order.userId] = [];
+  acc[order.userId].push(order);
+  return acc;
+}, {});
+
+// Good: Use DataLoader
+import DataLoader from 'dataloader';
+
+const orderLoader = new DataLoader(async (userIds) => {
+  const orders = await db.orders.findMany({
+    where: { userId: { in: userIds } }
+  });
+
+  const grouped = userIds.map(id =>
+    orders.filter(order => order.userId === id)
+  );
+
+  return grouped;
+});
+
+// Usage
+const userOrders = await orderLoader.load(userId);
+```
+
+## Caching Strategies
+
+### Multi-Level Caching
+
+```javascript
+class MultiLevelCache {
+  constructor() {
+    this.l1Cache = new Map(); // In-memory cache
+    this.l2Cache = redis.createClient(); // Redis cache
+  }
+
+  async get(key) {
+    // Check L1 cache
+    if (this.l1Cache.has(key)) {
+      return this.l1Cache.get(key);
+    }
+
+    // Check L2 cache
+    const l2Value = await this.l2Cache.get(key);
+    if (l2Value) {
+      // Populate L1 cache
+      this.l1Cache.set(key, JSON.parse(l2Value));
+      return JSON.parse(l2Value);
+    }
+
+    return null;
+  }
+
+  async set(key, value, ttl = 3600) {
+    // Set in both caches
+    this.l1Cache.set(key, value);
+    await this.l2Cache.setex(key, ttl, JSON.stringify(value));
+  }
+
+  async invalidate(key) {
+    this.l1Cache.delete(key);
+    await this.l2Cache.del(key);
+  }
+}
+```
+
+### Cache Warming
+
+```typescript
+class CacheWarmer {
+  constructor(private cache: Cache, private db: Database) {}
+
+  async warmFrequentlyAccessedData() {
+    // Warm popular products
+    const popularProducts = await this.db.products.findMany({
+      where: { views: { gt: 1000 } },
+      take: 100
+    });
+
+    for (const product of popularProducts) {
+      await this.cache.set(
+        `product:${product.id}`,
+        product,
+        3600
+      );
+    }
+
+    // Warm user sessions
+    const activeSessions = await this.db.sessions.findMany({
+      where: {
+        expiresAt: { gt: new Date() }
+      }
+    });
+
+    for (const session of activeSessions) {
+      await this.cache.set(
+        `session:${session.id}`,
+        session,
+        1800
+      );
+    }
+  }
+
+  async scheduleWarming() {
+    // Warm cache every hour
+    setInterval(() => {
+      this.warmFrequentlyAccessedData();
+    }, 3600000);
+  }
+}
+```
+
+## Frontend Optimization
+
+### Code Splitting
+
+```tsx
+// React lazy loading
+import { lazy, Suspense } from 'react';
+
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Settings = lazy(() => import('./pages/Settings'));
+
+function App() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <Routes>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/settings" element={<Settings />} />
+      </Routes>
+    </Suspense>
+  );
+}
+
+// Dynamic imports
+button.addEventListener('click', async () => {
+  const module = await import('./heavy-feature.js');
+  module.initialize();
+});
+```
+
+### Image Optimization
+
+```tsx
+// Next.js Image component
+import Image from 'next/image';
+
+export function OptimizedImage() {
+  return (
+    <Image
+      src="/hero.jpg"
+      alt="Hero image"
+      width={1920}
+      height={1080}
+      priority
+      placeholder="blur"
+      blurDataURL="data:image/jpeg;base64,..."
+    />
+  );
+}
+
+// Responsive images with srcset
+<img
+  src="image-800.jpg"
+  srcSet="
+    image-400.jpg 400w,
+    image-800.jpg 800w,
+    image-1200.jpg 1200w
+  "
+  sizes="(max-width: 400px) 400px,
+         (max-width: 800px) 800px,
+         1200px"
+  alt="Responsive image"
+/>
+
+// WebP with fallback
+<picture>
+  <source srcSet="image.webp" type="image/webp" />
+  <source srcSet="image.jpg" type="image/jpeg" />
+  <img src="image.jpg" alt="Image with WebP support" />
+</picture>
+```
+
+### Virtual Scrolling
+
+```tsx
+import { FixedSizeList } from 'react-window';
+
+function VirtualList({ items }) {
+  const Row = ({ index, style }) => (
+    <div style={style}>
+      {items[index].name}
+    </div>
+  );
+
+  return (
+    <FixedSizeList
+      height={600}
+      itemCount={items.length}
+      itemSize={50}
+      width="100%"
+    >
+      {Row}
+    </FixedSizeList>
+  );
+}
+```
+
+## API Optimization
+
+### Response Compression
+
+```javascript
+const compression = require('compression');
+const express = require('express');
+
+const app = express();
+
+// Enable compression
+app.use(compression({
+  level: 6,
+  threshold: 1024,
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
+```
+
+### GraphQL DataLoader
+
+```typescript
+import DataLoader from 'dataloader';
+
+const createLoaders = (db) => ({
+  userLoader: new DataLoader(async (ids) => {
+    const users = await db.users.findMany({
+      where: { id: { in: ids } }
+    });
+
+    const userMap = new Map(users.map(u => [u.id, u]));
+    return ids.map(id => userMap.get(id));
+  }),
+
+  postLoader: new DataLoader(async (ids) => {
+    const posts = await db.posts.findMany({
+      where: { id: { in: ids } }
+    });
+
+    const postMap = new Map(posts.map(p => [p.id, p]));
+    return ids.map(id => postMap.get(id));
+  })
+});
+
+// Usage in resolvers
+const resolvers = {
+  User: {
+    posts: (user, args, { loaders }) => {
+      return loaders.postLoader.loadMany(user.postIds);
+    }
+  }
+};
+```
+
+## Monitoring and Alerting
+
+```typescript
+import prometheus from 'prom-client';
+
+// Create metrics
+const httpRequestDuration = new prometheus.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'status_code']
+});
+
+const httpRequestTotal = new prometheus.Counter({
+  name: 'http_requests_total',
+  help: 'Total number of HTTP requests',
+  labelNames: ['method', 'route', 'status_code']
+});
+
+// Middleware to track metrics
+app.use((req, res, next) => {
+  const start = Date.now();
+
+  res.on('finish', () => {
+    const duration = (Date.now() - start) / 1000;
+
+    httpRequestDuration
+      .labels(req.method, req.route?.path || req.path, res.statusCode)
+      .observe(duration);
+
+    httpRequestTotal
+      .labels(req.method, req.route?.path || req.path, res.statusCode)
+      .inc();
+  });
+
+  next();
+});
+
+// Expose metrics endpoint
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', prometheus.register.contentType);
+  res.end(await prometheus.register.metrics());
+});
+```
+
+<Warning>
+Always measure before optimizing. Use profiling tools to identify actual bottlenecks rather than guessing.
+</Warning>
+
+<Tip>
+The best optimization is often doing less work. Consider if you can eliminate unnecessary operations before optimizing existing ones.
+</Tip>

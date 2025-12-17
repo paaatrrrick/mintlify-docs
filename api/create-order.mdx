@@ -1,0 +1,199 @@
+---
+title: "Create Order"
+api: "POST /api/v1/orders"
+description: "Create a new order with items and shipping information"
+---
+
+## Body Parameters
+
+<ParamField body="user_id" type="string" required>
+  The ID of the user placing the order
+</ParamField>
+
+<ParamField body="items" type="array" required>
+  Array of order items
+  <Expandable title="item object">
+    <ParamField body="product_id" type="string" required>
+      Product ID
+    </ParamField>
+    <ParamField body="quantity" type="integer" required>
+      Quantity to order
+    </ParamField>
+    <ParamField body="price" type="number" required>
+      Price per unit
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="shipping_address" type="object" required>
+  Shipping address details
+  <Expandable title="properties">
+    <ParamField body="street" type="string" required>
+      Street address
+    </ParamField>
+    <ParamField body="city" type="string" required>
+      City
+    </ParamField>
+    <ParamField body="state" type="string">
+      State or province
+    </ParamField>
+    <ParamField body="zip" type="string" required>
+      ZIP or postal code
+    </ParamField>
+    <ParamField body="country" type="string" required>
+      Country code (ISO 3166-1 alpha-2)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="payment_method_id" type="string" required>
+  Payment method identifier
+</ParamField>
+
+<ParamField body="notes" type="string">
+  Optional order notes
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.example.com/api/v1/orders \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "user_456",
+    "items": [
+      {
+        "product_id": "prod_789",
+        "quantity": 2,
+        "price": 49.99
+      }
+    ],
+    "shipping_address": {
+      "street": "123 Main St",
+      "city": "New York",
+      "state": "NY",
+      "zip": "10001",
+      "country": "US"
+    },
+    "payment_method_id": "pm_123",
+    "notes": "Please deliver after 5pm"
+  }'
+```
+
+```python Python
+import requests
+
+url = "https://api.example.com/api/v1/orders"
+headers = {
+    "Authorization": "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json"
+}
+data = {
+    "user_id": "user_456",
+    "items": [
+        {
+            "product_id": "prod_789",
+            "quantity": 2,
+            "price": 49.99
+        }
+    ],
+    "shipping_address": {
+        "street": "123 Main St",
+        "city": "New York",
+        "state": "NY",
+        "zip": "10001",
+        "country": "US"
+    },
+    "payment_method_id": "pm_123"
+}
+
+response = requests.post(url, json=data, headers=headers)
+print(response.json())
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.example.com/api/v1/orders', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    user_id: 'user_456',
+    items: [{
+      product_id: 'prod_789',
+      quantity: 2,
+      price: 49.99
+    }],
+    shipping_address: {
+      street: '123 Main St',
+      city: 'New York',
+      state: 'NY',
+      zip: '10001',
+      country: 'US'
+    },
+    payment_method_id: 'pm_123'
+  })
+});
+
+const data = await response.json();
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 Success
+{
+  "id": "order_123",
+  "user_id": "user_456",
+  "items": [
+    {
+      "product_id": "prod_789",
+      "product_name": "Wireless Headphones",
+      "quantity": 2,
+      "price": 49.99,
+      "subtotal": 99.98
+    }
+  ],
+  "subtotal": 99.98,
+  "tax": 8.50,
+  "shipping": 5.99,
+  "total_amount": 114.47,
+  "currency": "USD",
+  "status": "pending",
+  "payment_status": "pending",
+  "shipping_address": {
+    "street": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "zip": "10001",
+    "country": "US"
+  },
+  "created_at": "2024-01-20T15:30:00Z",
+  "estimated_delivery": "2024-01-25T00:00:00Z"
+}
+```
+
+```json 400 Bad Request
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid order data",
+    "details": [
+      {
+        "field": "items",
+        "message": "At least one item is required"
+      }
+    ]
+  }
+}
+```
+
+```json 402 Payment Required
+{
+  "error": {
+    "code": "INSUFFICIENT_FUNDS",
+    "message": "Payment method has insufficient funds"
+  }
+}
+```
+</ResponseExample>

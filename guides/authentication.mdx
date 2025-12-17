@@ -1,0 +1,131 @@
+---
+title: "Authentication Guide"
+description: "Complete guide to implementing authentication in your application"
+---
+
+# Authentication Overview
+
+Authentication is a critical component of any modern application. This guide covers various authentication methods and best practices.
+
+## Authentication Methods
+
+### JWT Authentication
+
+JSON Web Tokens (JWT) provide a stateless authentication mechanism that's perfect for modern APIs.
+
+```javascript
+const jwt = require('jsonwebtoken');
+
+function generateToken(userId) {
+  return jwt.sign(
+    { userId: userId },
+    process.env.JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+}
+
+function verifyToken(token) {
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    throw new Error('Invalid token');
+  }
+}
+```
+
+### OAuth 2.0
+
+OAuth 2.0 is an industry-standard protocol for authorization. Here's how to implement it:
+
+```python
+from flask import Flask, redirect, url_for
+from authlib.integrations.flask_client import OAuth
+
+app = Flask(__name__)
+oauth = OAuth(app)
+
+oauth.register(
+    name='google',
+    client_id='YOUR_CLIENT_ID',
+    client_secret='YOUR_CLIENT_SECRET',
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
+
+@app.route('/login')
+def login():
+    redirect_uri = url_for('authorize', _external=True)
+    return oauth.google.authorize_redirect(redirect_uri)
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use HTTPS everywhere">
+    Always use HTTPS in production to protect credentials in transit. Never send authentication tokens over unencrypted connections.
+  </Accordion>
+
+  <Accordion title="Implement rate limiting">
+    Protect your authentication endpoints from brute force attacks by implementing rate limiting.
+  </Accordion>
+
+  <Accordion title="Store passwords securely">
+    Always hash passwords using bcrypt or Argon2. Never store plain text passwords.
+  </Accordion>
+</AccordionGroup>
+
+## Password Hashing
+
+```go
+package main
+
+import (
+    "golang.org/x/crypto/bcrypt"
+)
+
+func HashPassword(password string) (string, error) {
+    bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+    return string(bytes), err
+}
+
+func CheckPasswordHash(password, hash string) bool {
+    err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+    return err == nil
+}
+```
+
+## Multi-Factor Authentication
+
+Add an extra layer of security with MFA:
+
+```typescript
+import * as speakeasy from 'speakeasy';
+import * as QRCode from 'qrcode';
+
+async function generateMFASecret(userEmail: string) {
+  const secret = speakeasy.generateSecret({
+    name: `YourApp (${userEmail})`,
+    length: 32
+  });
+
+  const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
+
+  return {
+    secret: secret.base32,
+    qrCode: qrCodeUrl
+  };
+}
+
+function verifyMFAToken(secret: string, token: string): boolean {
+  return speakeasy.totp.verify({
+    secret: secret,
+    encoding: 'base32',
+    token: token,
+    window: 2
+  });
+}
+```
+
+<Warning>
+  Always validate MFA tokens on the server side. Never trust client-side validation alone.
+</Warning>

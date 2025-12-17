@@ -1,0 +1,423 @@
+---
+title: "SendGrid Email Integration"
+description: "Send transactional and marketing emails with SendGrid"
+icon: "envelope"
+---
+
+# SendGrid Integration
+
+Integrate SendGrid to send transactional emails, newsletters, and automated email campaigns.
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @sendgrid/mail
+```
+
+```bash python
+pip install sendgrid
+```
+
+```bash ruby
+gem install sendgrid-ruby
+```
+</CodeGroup>
+
+## Configuration
+
+### Environment Variables
+
+```bash
+SENDGRID_API_KEY=your_api_key_here
+FROM_EMAIL=noreply@yourdomain.com
+FROM_NAME=Your Company
+```
+
+### Initialize SendGrid
+
+```typescript
+// lib/email.ts
+import sgMail from '@sendgrid/mail';
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+
+export { sgMail };
+```
+
+## Sending Emails
+
+### Basic Email
+
+```typescript
+import { sgMail } from './lib/email';
+
+async function sendWelcomeEmail(to: string, userName: string) {
+  const msg = {
+    to,
+    from: {
+      email: process.env.FROM_EMAIL!,
+      name: process.env.FROM_NAME!
+    },
+    subject: 'Welcome to Our Platform!',
+    text: `Hi ${userName}, welcome to our platform!`,
+    html: `
+      <h1>Welcome ${userName}!</h1>
+      <p>Thank you for joining our platform.</p>
+      <a href="https://example.com/get-started">Get Started</a>
+    `
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log('Email sent successfully');
+  } catch (error) {
+    console.error('Error sending email:', error);
+    throw error;
+  }
+}
+```
+
+### Email with Template
+
+```typescript
+async function sendTemplatedEmail(
+  to: string,
+  templateId: string,
+  dynamicData: any
+) {
+  const msg = {
+    to,
+    from: process.env.FROM_EMAIL!,
+    templateId,
+    dynamicTemplateData: dynamicData
+  };
+
+  try {
+    await sgMail.send(msg);
+  } catch (error) {
+    console.error('Template email error:', error);
+    throw error;
+  }
+}
+
+// Usage
+await sendTemplatedEmail(
+  'user@example.com',
+  'd-123abc456def',
+  {
+    userName: 'John Doe',
+    orderNumber: 'ORD-12345',
+    orderTotal: '$99.99',
+    orderItems: [
+      { name: 'Product 1', price: '$49.99' },
+      { name: 'Product 2', price: '$50.00' }
+    ]
+  }
+);
+```
+
+### Bulk Email
+
+```python
+import os
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail, To
+
+def send_bulk_email(recipients, subject, content):
+    """Send email to multiple recipients"""
+    sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+
+    # Create list of recipient objects
+    to_emails = [To(email=recipient) for recipient in recipients]
+
+    message = Mail(
+        from_email=os.environ.get('FROM_EMAIL'),
+        to_emails=to_emails,
+        subject=subject,
+        html_content=content
+    )
+
+    try:
+        response = sg.send(message)
+        print(f"Status Code: {response.status_code}")
+        return response
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        raise
+
+# Usage
+recipients = ['user1@example.com', 'user2@example.com', 'user3@example.com']
+send_bulk_email(
+    recipients,
+    'Monthly Newsletter',
+    '<h1>Newsletter</h1><p>Content here...</p>'
+)
+```
+
+## Advanced Features
+
+### Email with Attachments
+
+```javascript
+const fs = require('fs');
+const sgMail = require('@sendgrid/mail');
+
+async function sendEmailWithAttachment(to, subject, content, filePath) {
+  const fileContent = fs.readFileSync(filePath).toString('base64');
+  const fileName = filePath.split('/').pop();
+
+  const msg = {
+    to,
+    from: process.env.FROM_EMAIL,
+    subject,
+    html: content,
+    attachments: [
+      {
+        content: fileContent,
+        filename: fileName,
+        type: 'application/pdf',
+        disposition: 'attachment'
+      }
+    ]
+  };
+
+  await sgMail.send(msg);
+}
+```
+
+### Scheduled Send
+
+```typescript
+async function scheduleEmail(
+  to: string,
+  subject: string,
+  content: string,
+  sendAt: Date
+) {
+  const msg = {
+    to,
+    from: process.env.FROM_EMAIL!,
+    subject,
+    html: content,
+    sendAt: Math.floor(sendAt.getTime() / 1000) // Unix timestamp
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log(`Email scheduled for ${sendAt}`);
+  } catch (error) {
+    console.error('Scheduling error:', error);
+    throw error;
+  }
+}
+
+// Schedule email for tomorrow at 9 AM
+const tomorrow = new Date();
+tomorrow.setDate(tomorrow.getDate() + 1);
+tomorrow.setHours(9, 0, 0, 0);
+
+await scheduleEmail(
+  'user@example.com',
+  'Reminder',
+  '<p>This is your scheduled reminder</p>',
+  tomorrow
+);
+```
+
+### Email Service Class
+
+```typescript
+import { sgMail } from './lib/email';
+
+class EmailService {
+  private from = {
+    email: process.env.FROM_EMAIL!,
+    name: process.env.FROM_NAME!
+  };
+
+  async sendTransactional(
+    to: string,
+    templateId: string,
+    data: any
+  ): Promise<void> {
+    await sgMail.send({
+      to,
+      from: this.from,
+      templateId,
+      dynamicTemplateData: data
+    });
+  }
+
+  async sendOrderConfirmation(
+    to: string,
+    order: any
+  ): Promise<void> {
+    await this.sendTransactional(
+      to,
+      'd-order-confirmation',
+      {
+        orderNumber: order.id,
+        orderDate: order.createdAt,
+        items: order.items,
+        total: order.total,
+        trackingUrl: `https://example.com/track/${order.id}`
+      }
+    );
+  }
+
+  async sendPasswordReset(
+    to: string,
+    resetToken: string
+  ): Promise<void> {
+    const resetUrl = `https://example.com/reset-password?token=${resetToken}`;
+
+    await sgMail.send({
+      to,
+      from: this.from,
+      subject: 'Password Reset Request',
+      html: `
+        <h2>Password Reset</h2>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetUrl}">Reset Password</a>
+        <p>This link expires in 1 hour.</p>
+      `
+    });
+  }
+
+  async sendVerificationEmail(
+    to: string,
+    verificationCode: string
+  ): Promise<void> {
+    await sgMail.send({
+      to,
+      from: this.from,
+      subject: 'Verify Your Email',
+      html: `
+        <h2>Email Verification</h2>
+        <p>Your verification code is:</p>
+        <h1 style="font-size: 32px; letter-spacing: 8px;">${verificationCode}</h1>
+        <p>This code expires in 10 minutes.</p>
+      `
+    });
+  }
+}
+
+export const emailService = new EmailService();
+```
+
+## Webhooks
+
+### Setting Up Webhook Handler
+
+```typescript
+import express from 'express';
+import crypto from 'crypto';
+
+const app = express();
+
+app.post('/webhooks/sendgrid', express.json(), (req, res) => {
+  // Verify webhook signature
+  const signature = req.headers['x-twilio-email-event-webhook-signature'] as string;
+  const timestamp = req.headers['x-twilio-email-event-webhook-timestamp'] as string;
+
+  const verified = verifyWebhook(
+    req.body,
+    signature,
+    timestamp,
+    process.env.SENDGRID_WEBHOOK_KEY!
+  );
+
+  if (!verified) {
+    return res.status(403).send('Invalid signature');
+  }
+
+  // Process events
+  req.body.forEach((event: any) => {
+    switch (event.event) {
+      case 'delivered':
+        console.log(`Email delivered to ${event.email}`);
+        break;
+
+      case 'open':
+        console.log(`Email opened by ${event.email}`);
+        break;
+
+      case 'click':
+        console.log(`Link clicked: ${event.url}`);
+        break;
+
+      case 'bounce':
+        console.log(`Email bounced: ${event.email}`);
+        handleBounce(event);
+        break;
+
+      case 'spam':
+        console.log(`Marked as spam: ${event.email}`);
+        handleSpamReport(event);
+        break;
+    }
+  });
+
+  res.status(200).send('OK');
+});
+
+function verifyWebhook(
+  body: any,
+  signature: string,
+  timestamp: string,
+  verificationKey: string
+): boolean {
+  const payload = timestamp + JSON.stringify(body);
+  const expectedSignature = crypto
+    .createHmac('sha256', verificationKey)
+    .update(payload)
+    .digest('base64');
+
+  return signature === expectedSignature;
+}
+
+async function handleBounce(event: any) {
+  // Mark email as bounced in database
+  await db.users.update({
+    where: { email: event.email },
+    data: { emailBounced: true }
+  });
+}
+
+async function handleSpamReport(event: any) {
+  // Unsubscribe user from emails
+  await db.users.update({
+    where: { email: event.email },
+    data: { unsubscribed: true }
+  });
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Templates">
+    Create reusable email templates in SendGrid's dashboard for consistent branding and easier updates
+  </Accordion>
+
+  <Accordion title="Monitor Deliverability">
+    Track bounce rates, spam reports, and engagement metrics to maintain good sender reputation
+  </Accordion>
+
+  <Accordion title="Implement Retry Logic">
+    Add exponential backoff retry logic for failed email sends to handle temporary issues
+  </Accordion>
+
+  <Accordion title="Validate Email Addresses">
+    Validate email addresses before sending to reduce bounces and improve deliverability
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+Never send emails synchronously in API requests. Use background jobs or message queues to avoid blocking user requests.
+</Warning>
+
+<Tip>
+Test your emails thoroughly using SendGrid's sandbox mode before sending to real users.
+</Tip>

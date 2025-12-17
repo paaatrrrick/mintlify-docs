@@ -1,0 +1,512 @@
+---
+title: "WebSocket Communication"
+description: "Build real-time applications with WebSocket"
+---
+
+# WebSocket Communication
+
+WebSockets enable full-duplex communication between client and server, perfect for real-time applications like chat, gaming, and live updates.
+
+## Server Implementation
+
+### Node.js with Socket.IO
+
+```javascript
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL,
+    methods: ['GET', 'POST']
+  }
+});
+
+// Connection handling
+io.on('connection', (socket) => {
+  console.log(`User connected: ${socket.id}`);
+
+  // Join a room
+  socket.on('join_room', (roomId) => {
+    socket.join(roomId);
+    socket.to(roomId).emit('user_joined', {
+      userId: socket.id,
+      timestamp: new Date()
+    });
+  });
+
+  // Handle messages
+  socket.on('send_message', (data) => {
+    io.to(data.room).emit('receive_message', {
+      message: data.message,
+      sender: socket.id,
+      timestamp: new Date()
+    });
+  });
+
+  // Handle typing indicators
+  socket.on('typing_start', (roomId) => {
+    socket.to(roomId).emit('user_typing', socket.id);
+  });
+
+  socket.on('typing_stop', (roomId) => {
+    socket.to(roomId).emit('user_stopped_typing', socket.id);
+  });
+
+  // Disconnection
+  socket.on('disconnect', () => {
+    console.log(`User disconnected: ${socket.id}`);
+  });
+});
+
+server.listen(3000, () => {
+  console.log('Server running on port 3000');
+});
+```
+
+### Python with FastAPI
+
+```python
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from typing import List, Dict
+import json
+import asyncio
+
+app = FastAPI()
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, List[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, room_id: str):
+        await websocket.accept()
+        if room_id not in self.active_connections:
+            self.active_connections[room_id] = []
+        self.active_connections[room_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, room_id: str):
+        if room_id in self.active_connections:
+            self.active_connections[room_id].remove(websocket)
+
+    async def broadcast(self, message: dict, room_id: str):
+        if room_id in self.active_connections:
+            for connection in self.active_connections[room_id]:
+                await connection.send_json(message)
+
+    async def send_personal(self, message: dict, websocket: WebSocket):
+        await websocket.send_json(message)
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/{room_id}")
+async def websocket_endpoint(websocket: WebSocket, room_id: str):
+    await manager.connect(websocket, room_id)
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+
+            if data['type'] == 'message':
+                await manager.broadcast({
+                    'type': 'message',
+                    'content': data['content'],
+                    'sender': data['sender'],
+                    'timestamp': data['timestamp']
+                }, room_id)
+
+            elif data['type'] == 'typing':
+                await manager.broadcast({
+                    'type': 'typing',
+                    'sender': data['sender'],
+                    'is_typing': data['is_typing']
+                }, room_id)
+
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, room_id)
+        await manager.broadcast({
+            'type': 'user_left',
+            'room_id': room_id
+        }, room_id)
+```
+
+### Go with Gorilla WebSocket
+
+```go
+package main
+
+import (
+    "encoding/json"
+    "log"
+    "net/http"
+    "sync"
+
+    "github.com/gorilla/websocket"
+)
+
+var upgrader = websocket.Upgrader{
+    CheckOrigin: func(r *http.Request) bool {
+        return true
+    },
+}
+
+type Message struct {
+    Type      string `json:"type"`
+    Content   string `json:"content"`
+    Sender    string `json:"sender"`
+    Room      string `json:"room"`
+    Timestamp int64  `json:"timestamp"`
+}
+
+type Client struct {
+    conn     *websocket.Conn
+    send     chan Message
+    rooms    map[string]bool
+    username string
+}
+
+type Hub struct {
+    clients    map[*Client]bool
+    rooms      map[string]map[*Client]bool
+    broadcast  chan Message
+    register   chan *Client
+    unregister chan *Client
+    mu         sync.RWMutex
+}
+
+func newHub() *Hub {
+    return &Hub{
+        clients:    make(map[*Client]bool),
+        rooms:      make(map[string]map[*Client]bool),
+        broadcast:  make(chan Message),
+        register:   make(chan *Client),
+        unregister: make(chan *Client),
+    }
+}
+
+func (h *Hub) run() {
+    for {
+        select {
+        case client := <-h.register:
+            h.mu.Lock()
+            h.clients[client] = true
+            h.mu.Unlock()
+
+        case client := <-h.unregister:
+            h.mu.Lock()
+            if _, ok := h.clients[client]; ok {
+                delete(h.clients, client)
+                close(client.send)
+
+                for room := range client.rooms {
+                    if clients, ok := h.rooms[room]; ok {
+                        delete(clients, client)
+                    }
+                }
+            }
+            h.mu.Unlock()
+
+        case message := <-h.broadcast:
+            h.mu.RLock()
+            if clients, ok := h.rooms[message.Room]; ok {
+                for client := range clients {
+                    select {
+                    case client.send <- message:
+                    default:
+                        close(client.send)
+                        delete(h.clients, client)
+                    }
+                }
+            }
+            h.mu.RUnlock()
+        }
+    }
+}
+
+func (h *Hub) joinRoom(client *Client, room string) {
+    h.mu.Lock()
+    defer h.mu.Unlock()
+
+    if _, ok := h.rooms[room]; !ok {
+        h.rooms[room] = make(map[*Client]bool)
+    }
+
+    h.rooms[room][client] = true
+    client.rooms[room] = true
+}
+
+func handleWebSocket(hub *Hub, w http.ResponseWriter, r *http.Request) {
+    conn, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        log.Println(err)
+        return
+    }
+
+    client := &Client{
+        conn:  conn,
+        send:  make(chan Message, 256),
+        rooms: make(map[string]bool),
+    }
+
+    hub.register <- client
+
+    go client.writePump()
+    go client.readPump(hub)
+}
+
+func (c *Client) readPump(hub *Hub) {
+    defer func() {
+        hub.unregister <- c
+        c.conn.Close()
+    }()
+
+    for {
+        var message Message
+        err := c.conn.ReadJSON(&message)
+        if err != nil {
+            break
+        }
+
+        switch message.Type {
+        case "join":
+            hub.joinRoom(c, message.Room)
+        case "message":
+            hub.broadcast <- message
+        }
+    }
+}
+
+func (c *Client) writePump() {
+    defer c.conn.Close()
+
+    for message := range c.send {
+        err := c.conn.WriteJSON(message)
+        if err != nil {
+            return
+        }
+    }
+}
+
+func main() {
+    hub := newHub()
+    go hub.run()
+
+    http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+        handleWebSocket(hub, w, r)
+    })
+
+    log.Println("Server starting on :8080")
+    log.Fatal(http.ListenAndServe(":8080", nil))
+}
+```
+
+## Client Implementation
+
+### React with Socket.IO
+
+```typescript
+import { useEffect, useState } from 'react';
+import io, { Socket } from 'socket.io-client';
+
+interface Message {
+  id: string;
+  content: string;
+  sender: string;
+  timestamp: Date;
+}
+
+export function ChatRoom({ roomId, userId }: { roomId: string; userId: string }) {
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputValue, setInputValue] = useState('');
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const newSocket = io('http://localhost:3000', {
+      auth: { userId }
+    });
+
+    newSocket.on('connect', () => {
+      console.log('Connected to server');
+      newSocket.emit('join_room', roomId);
+    });
+
+    newSocket.on('receive_message', (message: Message) => {
+      setMessages(prev => [...prev, message]);
+    });
+
+    newSocket.on('user_typing', (userId: string) => {
+      setTypingUsers(prev => new Set(prev).add(userId));
+    });
+
+    newSocket.on('user_stopped_typing', (userId: string) => {
+      setTypingUsers(prev => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [roomId, userId]);
+
+  const sendMessage = () => {
+    if (socket && inputValue.trim()) {
+      socket.emit('send_message', {
+        room: roomId,
+        message: inputValue,
+        sender: userId
+      });
+      setInputValue('');
+    }
+  };
+
+  const handleTyping = (isTyping: boolean) => {
+    if (socket) {
+      socket.emit(isTyping ? 'typing_start' : 'typing_stop', roomId);
+    }
+  };
+
+  return (
+    <div className="chat-room">
+      <div className="messages">
+        {messages.map(msg => (
+          <div key={msg.id} className="message">
+            <strong>{msg.sender}:</strong> {msg.content}
+          </div>
+        ))}
+      </div>
+
+      {typingUsers.size > 0 && (
+        <div className="typing-indicator">
+          {Array.from(typingUsers).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
+        </div>
+      )}
+
+      <div className="input-area">
+        <input
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onFocus={() => handleTyping(true)}
+          onBlur={() => handleTyping(false)}
+          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+        />
+        <button onClick={sendMessage}>Send</button>
+      </div>
+    </div>
+  );
+}
+```
+
+### Vue 3 Composition API
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue';
+import { io, Socket } from 'socket.io-client';
+
+interface Props {
+  roomId: string;
+  userId: string;
+}
+
+const props = defineProps<Props>();
+const socket = ref<Socket | null>(null);
+const messages = ref<Array<{id: string, content: string, sender: string}>>([]);
+const inputValue = ref('');
+
+onMounted(() => {
+  socket.value = io('http://localhost:3000');
+
+  socket.value.on('connect', () => {
+    socket.value?.emit('join_room', props.roomId);
+  });
+
+  socket.value.on('receive_message', (message) => {
+    messages.value.push(message);
+  });
+});
+
+onUnmounted(() => {
+  socket.value?.disconnect();
+});
+
+const sendMessage = () => {
+  if (socket.value && inputValue.value.trim()) {
+    socket.value.emit('send_message', {
+      room: props.roomId,
+      message: inputValue.value,
+      sender: props.userId
+    });
+    inputValue.value = '';
+  }
+};
+</script>
+
+<template>
+  <div class="chat-room">
+    <div class="messages">
+      <div v-for="msg in messages" :key="msg.id" class="message">
+        <strong>{{ msg.sender }}:</strong> {{ msg.content }}
+      </div>
+    </div>
+
+    <div class="input-area">
+      <input
+        v-model="inputValue"
+        @keyup.enter="sendMessage"
+        placeholder="Type a message..."
+      />
+      <button @click="sendMessage">Send</button>
+    </div>
+  </div>
+</template>
+```
+
+## Authentication & Security
+
+```javascript
+const jwt = require('jsonwebtoken');
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+
+  if (!token) {
+    return next(new Error('Authentication error'));
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.userId;
+    next();
+  } catch (err) {
+    next(new Error('Authentication error'));
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log(`Authenticated user ${socket.userId} connected`);
+
+  // Verify room access
+  socket.on('join_room', async (roomId) => {
+    const hasAccess = await checkRoomAccess(socket.userId, roomId);
+
+    if (!hasAccess) {
+      socket.emit('error', { message: 'Access denied to this room' });
+      return;
+    }
+
+    socket.join(roomId);
+  });
+});
+```
+
+<Warning>
+Always validate and sanitize messages on the server side to prevent XSS attacks and other security vulnerabilities.
+</Warning>

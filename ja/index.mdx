@@ -1,0 +1,85 @@
+---
+title: "はじめに"
+description: "ドキュメントの新しいホームへようこそ"
+---
+
+# ドキュメントへようこそ
+
+このプラットフォームの包括的なドキュメントへようこそ。ここでは、アプリケーションの構築、統合、デプロイに必要なすべての情報を見つけることができます。
+
+## クイックスタート
+
+数分で始めましょう：
+
+<Steps>
+  <Step title="アカウントの作成">
+    プラットフォームにサインアップしてAPIキーを取得します
+  </Step>
+  <Step title="SDKのインストール">
+    お好みのプログラミング言語用のSDKをインストールします
+  </Step>
+  <Step title="最初のリクエストを作成">
+    APIへの最初のリクエストを行います
+  </Step>
+</Steps>
+
+## 主な機能
+
+<CardGroup cols={2}>
+  <Card title="認証" icon="lock" href="/ja/guides/authentication">
+    JWT、OAuth、その他の認証方法を実装します
+  </Card>
+  <Card title="データベース最適化" icon="database" href="/ja/guides/database-optimization">
+    データベースのパフォーマンスを最適化します
+  </Card>
+  <Card title="API設計" icon="code" href="/ja/guides/api-design">
+    堅牢なRESTful APIを構築します
+  </Card>
+  <Card title="マイクロサービス" icon="server" href="/ja/guides/microservices">
+    スケーラブルなマイクロサービスアーキテクチャを学びます
+  </Card>
+</CardGroup>
+
+## 始める前に
+
+開発を開始する前に、以下のものがあることを確認してください：
+
+- 有効なアカウントとAPIキー
+- Node.js 18以上またはPython 3.9以上
+- 基本的なRESTful APIの知識
+
+## サンプルコード
+
+```javascript
+// クイックスタートの例
+const client = new APIClient({
+  apiKey: 'your_api_key_here'
+});
+
+const users = await client.users.list();
+console.log(users);
+```
+
+```python
+# Pythonでの例
+from api_client import APIClient
+
+client = APIClient(api_key='your_api_key_here')
+users = client.users.list()
+print(users)
+```
+
+<Note>
+このドキュメントは常に更新されています。最新の変更については、変更ログを確認してください。
+</Note>
+
+## サポートが必要ですか？
+
+<CardGroup cols={2}>
+  <Card title="コミュニティ" icon="users">
+    開発者コミュニティに参加して質問してください
+  </Card>
+  <Card title="サポート" icon="life-ring">
+    問題が発生した場合は、サポートチームに連絡してください
+  </Card>
+</CardGroup>

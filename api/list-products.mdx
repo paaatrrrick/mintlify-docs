@@ -1,0 +1,263 @@
+---
+title: "List Products"
+api: "GET /api/v1/products"
+description: "Retrieve a paginated list of products"
+---
+
+## Query Parameters
+
+<ParamField query="page" type="integer" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="20">
+  Number of items per page (max: 100)
+</ParamField>
+
+<ParamField query="category" type="string">
+  Filter by category slug
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by status: `active`, `inactive`, `out_of_stock`
+</ParamField>
+
+<ParamField query="min_price" type="number">
+  Minimum price filter
+</ParamField>
+
+<ParamField query="max_price" type="number">
+  Maximum price filter
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search products by name or description
+</ParamField>
+
+<ParamField query="sort_by" type="string" default="created_at">
+  Sort field: `name`, `price`, `created_at`, `popularity`
+</ParamField>
+
+<ParamField query="order" type="string" default="desc">
+  Sort order: `asc` or `desc`
+</ParamField>
+
+## Response
+
+<ResponseField name="data" type="array">
+  Array of product objects
+  <Expandable title="product object">
+    <ResponseField name="id" type="string">
+      Product unique identifier
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Product name
+    </ResponseField>
+    <ResponseField name="description" type="string">
+      Product description
+    </ResponseField>
+    <ResponseField name="price" type="number">
+      Product price
+    </ResponseField>
+    <ResponseField name="currency" type="string">
+      Currency code (e.g., USD, EUR)
+    </ResponseField>
+    <ResponseField name="category" type="object">
+      Category information
+    </ResponseField>
+    <ResponseField name="images" type="array">
+      Array of image URLs
+    </ResponseField>
+    <ResponseField name="stock_quantity" type="integer">
+      Available stock
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Product status
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="pagination" type="object">
+  Pagination metadata
+  <Expandable title="properties">
+    <ResponseField name="current_page" type="integer">
+      Current page number
+    </ResponseField>
+    <ResponseField name="per_page" type="integer">
+      Items per page
+    </ResponseField>
+    <ResponseField name="total_pages" type="integer">
+      Total number of pages
+    </ResponseField>
+    <ResponseField name="total_count" type="integer">
+      Total number of items
+    </ResponseField>
+    <ResponseField name="has_next" type="boolean">
+      Whether there's a next page
+    </ResponseField>
+    <ResponseField name="has_prev" type="boolean">
+      Whether there's a previous page
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.example.com/api/v1/products?category=electronics&min_price=100&max_price=1000&page=1&per_page=20" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```python Python
+import requests
+
+url = "https://api.example.com/api/v1/products"
+headers = {"Authorization": "Bearer YOUR_API_KEY"}
+params = {
+    "category": "electronics",
+    "min_price": 100,
+    "max_price": 1000,
+    "page": 1,
+    "per_page": 20,
+    "sort_by": "price",
+    "order": "asc"
+}
+
+response = requests.get(url, headers=headers, params=params)
+print(response.json())
+```
+
+```javascript JavaScript
+const params = new URLSearchParams({
+  category: 'electronics',
+  min_price: '100',
+  max_price: '1000',
+  page: '1',
+  per_page: '20',
+  sort_by: 'price',
+  order: 'asc'
+});
+
+const response = await fetch(`https://api.example.com/api/v1/products?${params}`, {
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY'
+  }
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+```ruby Ruby
+require 'httparty'
+
+url = 'https://api.example.com/api/v1/products'
+headers = { 'Authorization' => 'Bearer YOUR_API_KEY' }
+params = {
+  category: 'electronics',
+  min_price: 100,
+  max_price: 1000,
+  page: 1,
+  per_page: 20,
+  sort_by: 'price',
+  order: 'asc'
+}
+
+response = HTTParty.get(url, headers: headers, query: params)
+puts response.body
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 Success
+{
+  "data": [
+    {
+      "id": "prod_123",
+      "name": "Wireless Headphones",
+      "description": "High-quality wireless headphones with noise cancellation",
+      "price": 299.99,
+      "currency": "USD",
+      "category": {
+        "id": "cat_456",
+        "name": "Electronics",
+        "slug": "electronics"
+      },
+      "images": [
+        "https://example.com/products/prod_123/image1.jpg",
+        "https://example.com/products/prod_123/image2.jpg"
+      ],
+      "stock_quantity": 50,
+      "status": "active",
+      "created_at": "2024-01-10T09:00:00Z",
+      "updated_at": "2024-01-15T14:30:00Z"
+    },
+    {
+      "id": "prod_124",
+      "name": "Smart Watch",
+      "description": "Fitness tracking smartwatch with heart rate monitor",
+      "price": 399.99,
+      "currency": "USD",
+      "category": {
+        "id": "cat_456",
+        "name": "Electronics",
+        "slug": "electronics"
+      },
+      "images": [
+        "https://example.com/products/prod_124/image1.jpg"
+      ],
+      "stock_quantity": 25,
+      "status": "active",
+      "created_at": "2024-01-12T11:00:00Z",
+      "updated_at": "2024-01-18T16:45:00Z"
+    }
+  ],
+  "pagination": {
+    "current_page": 1,
+    "per_page": 20,
+    "total_pages": 5,
+    "total_count": 95,
+    "has_next": true,
+    "has_prev": false
+  }
+}
+```
+
+```json 400 Bad Request
+{
+  "error": {
+    "code": "INVALID_PARAMETERS",
+    "message": "Invalid query parameters",
+    "details": [
+      {
+        "field": "per_page",
+        "message": "Value must be between 1 and 100"
+      }
+    ]
+  }
+}
+```
+</ResponseExample>
+
+## Filtering Examples
+
+<CodeGroup>
+```bash Filter by category
+curl -X GET "https://api.example.com/api/v1/products?category=electronics" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```bash Search products
+curl -X GET "https://api.example.com/api/v1/products?search=wireless" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```bash Price range
+curl -X GET "https://api.example.com/api/v1/products?min_price=100&max_price=500" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```bash Sorted by price
+curl -X GET "https://api.example.com/api/v1/products?sort_by=price&order=asc" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>

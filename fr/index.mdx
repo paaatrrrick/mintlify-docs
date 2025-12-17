@@ -1,0 +1,85 @@
+---
+title: "Introduction"
+description: "Bienvenue dans le nouveau foyer de votre documentation"
+---
+
+# Bienvenue dans la Documentation
+
+Bienvenue dans la documentation complète de notre plateforme. Vous trouverez ici toutes les informations dont vous avez besoin pour créer, intégrer et déployer des applications.
+
+## Démarrage Rapide
+
+Commencez en quelques minutes :
+
+<Steps>
+  <Step title="Créer un Compte">
+    Inscrivez-vous sur la plateforme et obtenez votre clé API
+  </Step>
+  <Step title="Installer le SDK">
+    Installez le SDK pour votre langage de programmation préféré
+  </Step>
+  <Step title="Faire Votre Première Requête">
+    Effectuez votre premier appel API
+  </Step>
+</Steps>
+
+## Fonctionnalités Principales
+
+<CardGroup cols={2}>
+  <Card title="Authentification" icon="lock" href="/fr/guides/authentication">
+    Implémentez JWT, OAuth et d'autres méthodes d'authentification
+  </Card>
+  <Card title="Optimisation de Base de Données" icon="database" href="/fr/guides/database-optimization">
+    Optimisez les performances de votre base de données
+  </Card>
+  <Card title="Conception d'API" icon="code" href="/fr/guides/api-design">
+    Créez des APIs RESTful robustes
+  </Card>
+  <Card title="Microservices" icon="server" href="/fr/guides/microservices">
+    Apprenez l'architecture microservices évolutive
+  </Card>
+</CardGroup>
+
+## Avant de Commencer
+
+Avant de commencer le développement, assurez-vous d'avoir :
+
+- Un compte valide et une clé API
+- Node.js 18+ ou Python 3.9+
+- Connaissance de base des APIs RESTful
+
+## Exemple de Code
+
+```javascript
+// Exemple de démarrage rapide
+const client = new APIClient({
+  apiKey: 'votre_cle_api_ici'
+});
+
+const users = await client.users.list();
+console.log(users);
+```
+
+```python
+# Exemple en Python
+from api_client import APIClient
+
+client = APIClient(api_key='votre_cle_api_ici')
+users = client.users.list()
+print(users)
+```
+
+<Note>
+Cette documentation est constamment mise à jour. Consultez le journal des modifications pour les dernières mises à jour.
+</Note>
+
+## Besoin d'Aide ?
+
+<CardGroup cols={2}>
+  <Card title="Communauté" icon="users">
+    Rejoignez notre communauté de développeurs et posez des questions
+  </Card>
+  <Card title="Support" icon="life-ring">
+    Contactez notre équipe de support si vous rencontrez des problèmes
+  </Card>
+</CardGroup>

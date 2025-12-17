@@ -1,0 +1,544 @@
+---
+title: "Security Best Practices"
+description: "Comprehensive security guide for modern applications"
+---
+
+# Security Best Practices
+
+Protect your applications from common vulnerabilities and implement defense-in-depth security strategies.
+
+## Authentication & Authorization
+
+### JWT Security
+
+```typescript
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+
+// Generate secure secret
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
+
+// Token generation with best practices
+function generateTokens(userId: string) {
+  const accessToken = jwt.sign(
+    { userId, type: 'access' },
+    JWT_SECRET,
+    {
+      expiresIn: '15m',
+      algorithm: 'HS256',
+      issuer: 'your-app',
+      audience: 'your-app-users'
+    }
+  );
+
+  const refreshToken = jwt.sign(
+    { userId, type: 'refresh' },
+    JWT_SECRET,
+    {
+      expiresIn: '7d',
+      algorithm: 'HS256',
+      issuer: 'your-app',
+      audience: 'your-app-users'
+    }
+  );
+
+  return { accessToken, refreshToken };
+}
+
+// Secure token verification
+function verifyToken(token: string, type: 'access' | 'refresh') {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
+      issuer: 'your-app',
+      audience: 'your-app-users'
+    });
+
+    if (decoded.type !== type) {
+      throw new Error('Invalid token type');
+    }
+
+    return decoded;
+  } catch (error) {
+    throw new Error('Token verification failed');
+  }
+}
+```
+
+### Password Security
+
+```python
+import bcrypt
+import secrets
+import string
+from datetime import datetime, timedelta
+
+class PasswordManager:
+    # Secure password hashing
+    @staticmethod
+    def hash_password(password: str) -> str:
+        # Use bcrypt with sufficient cost factor
+        salt = bcrypt.gensalt(rounds=12)
+        hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+        return hashed.decode('utf-8')
+
+    @staticmethod
+    def verify_password(password: str, hashed: str) -> bool:
+        return bcrypt.checkpw(
+            password.encode('utf-8'),
+            hashed.encode('utf-8')
+        )
+
+    # Password strength validation
+    @staticmethod
+    def is_strong_password(password: str) -> tuple[bool, list[str]]:
+        errors = []
+
+        if len(password) < 12:
+            errors.append("Password must be at least 12 characters")
+
+        if not any(c.isupper() for c in password):
+            errors.append("Password must contain uppercase letters")
+
+        if not any(c.islower() for c in password):
+            errors.append("Password must contain lowercase letters")
+
+        if not any(c.isdigit() for c in password):
+            errors.append("Password must contain numbers")
+
+        if not any(c in string.punctuation for c in password):
+            errors.append("Password must contain special characters")
+
+        return len(errors) == 0, errors
+
+    # Generate secure random password
+    @staticmethod
+    def generate_secure_password(length: int = 16) -> str:
+        alphabet = string.ascii_letters + string.digits + string.punctuation
+        return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+    # Password reset token
+    @staticmethod
+    def generate_reset_token() -> str:
+        return secrets.token_urlsafe(32)
+```
+
+## Input Validation & Sanitization
+
+### SQL Injection Prevention
+
+```javascript
+// Bad: SQL Injection vulnerable
+const query = `SELECT * FROM users WHERE email = '${userEmail}'`;
+
+// Good: Parameterized queries
+const query = 'SELECT * FROM users WHERE email = $1';
+const result = await db.query(query, [userEmail]);
+
+// Using ORM (Prisma)
+const user = await prisma.user.findUnique({
+  where: { email: userEmail }
+});
+
+// Validate and sanitize input
+import validator from 'validator';
+
+function validateEmail(email) {
+  if (!validator.isEmail(email)) {
+    throw new Error('Invalid email format');
+  }
+
+  // Normalize email
+  return validator.normalizeEmail(email);
+}
+
+function sanitizeInput(input) {
+  // Remove potentially dangerous characters
+  return validator.escape(input);
+}
+```
+
+### XSS Prevention
+
+```typescript
+import DOMPurify from 'isomorphic-dompurify';
+
+// Sanitize HTML content
+function sanitizeHTML(dirty: string): string {
+  return DOMPurify.sanitize(dirty, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p'],
+    ALLOWED_ATTR: ['href']
+  });
+}
+
+// React: Use proper escaping
+function UserComment({ comment }) {
+  // Good: React automatically escapes
+  return <div>{comment}</div>;
+
+  // Dangerous: Only use when necessary
+  return <div dangerouslySetInnerHTML={{ __html: sanitizeHTML(comment) }} />;
+}
+
+// Set Content Security Policy
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' https://trusted-cdn.com; " +
+    "style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: https:; " +
+    "font-src 'self' data:; " +
+    "connect-src 'self' https://api.example.com"
+  );
+  next();
+});
+```
+
+### CSRF Protection
+
+```javascript
+const csrf = require('csurf');
+const cookieParser = require('cookie-parser');
+
+app.use(cookieParser());
+
+const csrfProtection = csrf({
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict'
+  }
+});
+
+// Protect routes
+app.post('/api/transfer', csrfProtection, (req, res) => {
+  // Process transfer
+});
+
+// Send CSRF token to client
+app.get('/form', csrfProtection, (req, res) => {
+  res.render('form', { csrfToken: req.csrfToken() });
+});
+
+// Client-side: Include token in requests
+fetch('/api/transfer', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'CSRF-Token': csrfToken
+  },
+  body: JSON.stringify(data)
+});
+```
+
+## Rate Limiting & DDoS Protection
+
+```typescript
+import rateLimit from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
+import Redis from 'ioredis';
+
+const redis = new Redis(process.env.REDIS_URL);
+
+// API rate limiting
+const apiLimiter = rateLimit({
+  store: new RedisStore({
+    client: redis,
+    prefix: 'rl:api:'
+  }),
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Stricter limit for authentication endpoints
+const authLimiter = rateLimit({
+  store: new RedisStore({
+    client: redis,
+    prefix: 'rl:auth:'
+  }),
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // 5 attempts per hour
+  skipSuccessfulRequests: true,
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Too many login attempts. Please try again later.'
+    });
+  }
+});
+
+app.use('/api/', apiLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+
+// Advanced rate limiting per user
+class UserRateLimiter {
+  constructor(private redis: Redis) {}
+
+  async checkLimit(userId: string, action: string, limit: number, window: number) {
+    const key = `rate:${userId}:${action}`;
+    const current = await this.redis.incr(key);
+
+    if (current === 1) {
+      await this.redis.expire(key, window);
+    }
+
+    if (current > limit) {
+      const ttl = await this.redis.ttl(key);
+      throw new Error(`Rate limit exceeded. Try again in ${ttl} seconds`);
+    }
+
+    return { remaining: limit - current, resetIn: window };
+  }
+}
+```
+
+## Secure Headers
+
+```javascript
+import helmet from 'helmet';
+
+app.use(helmet({
+  // Strict Transport Security
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  },
+
+  // Content Security Policy
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://api.example.com"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"]
+    }
+  },
+
+  // X-Frame-Options
+  frameguard: {
+    action: 'deny'
+  },
+
+  // X-Content-Type-Options
+  noSniff: true,
+
+  // X-XSS-Protection
+  xssFilter: true,
+
+  // Referrer Policy
+  referrerPolicy: {
+    policy: 'strict-origin-when-cross-origin'
+  }
+}));
+
+// Additional security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+  res.setHeader('X-Download-Options', 'noopen');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  next();
+});
+```
+
+## Secrets Management
+
+```python
+import os
+from cryptography.fernet import Fernet
+from typing import Optional
+
+class SecretsManager:
+    def __init__(self):
+        # Load encryption key from environment
+        key = os.getenv('ENCRYPTION_KEY')
+        if not key:
+            raise ValueError("ENCRYPTION_KEY not set")
+
+        self.cipher = Fernet(key.encode())
+
+    def encrypt(self, data: str) -> str:
+        """Encrypt sensitive data"""
+        return self.cipher.encrypt(data.encode()).decode()
+
+    def decrypt(self, encrypted: str) -> str:
+        """Decrypt encrypted data"""
+        return self.cipher.decrypt(encrypted.encode()).decode()
+
+    @staticmethod
+    def generate_key() -> str:
+        """Generate a new encryption key"""
+        return Fernet.generate_key().decode()
+
+# Environment-based configuration
+class Config:
+    def __init__(self):
+        self.database_url = os.getenv('DATABASE_URL')
+        self.redis_url = os.getenv('REDIS_URL')
+        self.jwt_secret = os.getenv('JWT_SECRET')
+        self.api_key = os.getenv('API_KEY')
+
+        # Validate required secrets
+        self._validate()
+
+    def _validate(self):
+        required = ['DATABASE_URL', 'JWT_SECRET', 'API_KEY']
+        missing = [var for var in required if not os.getenv(var)]
+
+        if missing:
+            raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
+
+# Using AWS Secrets Manager
+import boto3
+import json
+
+def get_secret(secret_name: str) -> dict:
+    client = boto3.client('secretsmanager', region_name='us-east-1')
+
+    try:
+        response = client.get_secret_value(SecretId=secret_name)
+        return json.loads(response['SecretString'])
+    except Exception as e:
+        raise Exception(f"Failed to retrieve secret: {e}")
+```
+
+## Secure File Upload
+
+```typescript
+import multer from 'multer';
+import path from 'path';
+import crypto from 'crypto';
+import sharp from 'sharp';
+
+// Secure file upload configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/temp');
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = crypto.randomBytes(16).toString('hex');
+    const ext = path.extname(file.originalname);
+    cb(null, `${uniqueName}${ext}`);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+    files: 1
+  },
+  fileFilter: (req, file, cb) => {
+    // Whitelist allowed MIME types
+    const allowedMimes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp'
+    ];
+
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type'));
+    }
+  }
+});
+
+// Validate file after upload
+async function validateImage(filePath: string): Promise<boolean> {
+  try {
+    const metadata = await sharp(filePath).metadata();
+
+    // Check actual file type (not just extension)
+    if (!['jpeg', 'png', 'gif', 'webp'].includes(metadata.format)) {
+      throw new Error('Invalid image format');
+    }
+
+    // Check dimensions
+    if (metadata.width > 4000 || metadata.height > 4000) {
+      throw new Error('Image dimensions too large');
+    }
+
+    return true;
+  } catch (error) {
+    throw new Error('Invalid image file');
+  }
+}
+
+app.post('/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    // Validate the uploaded file
+    await validateImage(req.file.path);
+
+    // Process and move to permanent location
+    const finalPath = `uploads/${req.file.filename}`;
+    await sharp(req.file.path)
+      .resize(1920, 1080, { fit: 'inside', withoutEnlargement: true })
+      .toFile(finalPath);
+
+    // Delete temporary file
+    await fs.unlink(req.file.path);
+
+    res.json({ success: true, path: finalPath });
+  } catch (error) {
+    // Clean up on error
+    if (req.file) {
+      await fs.unlink(req.file.path).catch(() => {});
+    }
+    res.status(400).json({ error: error.message });
+  }
+});
+```
+
+## Security Checklist
+
+<AccordionGroup>
+  <Accordion title="Authentication">
+    - [ ] Use strong password requirements
+    - [ ] Implement rate limiting on auth endpoints
+    - [ ] Use secure password hashing (bcrypt, Argon2)
+    - [ ] Implement MFA where possible
+    - [ ] Use short-lived access tokens
+  </Accordion>
+
+  <Accordion title="Authorization">
+    - [ ] Implement proper RBAC/ABAC
+    - [ ] Validate permissions on every request
+    - [ ] Use principle of least privilege
+    - [ ] Audit access logs regularly
+  </Accordion>
+
+  <Accordion title="Data Protection">
+    - [ ] Encrypt sensitive data at rest
+    - [ ] Use TLS/SSL for data in transit
+    - [ ] Implement proper key management
+    - [ ] Sanitize all user inputs
+    - [ ] Validate data types and formats
+  </Accordion>
+
+  <Accordion title="Infrastructure">
+    - [ ] Keep dependencies updated
+    - [ ] Run security audits (npm audit, Snyk)
+    - [ ] Use environment variables for secrets
+    - [ ] Implement proper logging and monitoring
+    - [ ] Configure secure headers
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+Security is not a one-time task. Regularly audit your code, update dependencies, and stay informed about new vulnerabilities.
+</Warning>

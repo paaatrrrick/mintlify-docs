@@ -1,0 +1,541 @@
+---
+title: "Monitoring & Observability"
+description: "Implement comprehensive monitoring and observability for your applications"
+---
+
+# Monitoring & Observability
+
+Build observable systems with proper logging, metrics, tracing, and alerting to ensure reliability and quickly diagnose issues.
+
+## Application Metrics
+
+### Prometheus Integration
+
+```javascript
+const prometheus = require('prom-client');
+const express = require('express');
+
+// Create a Registry
+const register = new prometheus.Registry();
+
+// Add default metrics
+prometheus.collectDefaultMetrics({ register });
+
+// Custom metrics
+const httpRequestDuration = new prometheus.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'status_code'],
+  buckets: [0.1, 0.5, 1, 2, 5]
+});
+
+const httpRequestTotal = new prometheus.Counter({
+  name: 'http_requests_total',
+  help: 'Total number of HTTP requests',
+  labelNames: ['method', 'route', 'status_code']
+});
+
+const activeConnections = new prometheus.Gauge({
+  name: 'active_connections',
+  help: 'Number of active connections'
+});
+
+const jobDuration = new prometheus.Summary({
+  name: 'job_duration_seconds',
+  help: 'Duration of job execution',
+  labelNames: ['job_name'],
+  percentiles: [0.5, 0.9, 0.95, 0.99]
+});
+
+// Register metrics
+register.registerMetric(httpRequestDuration);
+register.registerMetric(httpRequestTotal);
+register.registerMetric(activeConnections);
+register.registerMetric(jobDuration);
+
+// Middleware
+const app = express();
+
+app.use((req, res, next) => {
+  const start = Date.now();
+
+  res.on('finish', () => {
+    const duration = (Date.now() - start) / 1000;
+    const route = req.route?.path || req.path;
+
+    httpRequestDuration
+      .labels(req.method, route, res.statusCode)
+      .observe(duration);
+
+    httpRequestTotal
+      .labels(req.method, route, res.statusCode)
+      .inc();
+  });
+
+  next();
+});
+
+// Metrics endpoint
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
+
+// Track active connections
+const server = app.listen(3000, () => {
+  console.log('Server started');
+});
+
+server.on('connection', (socket) => {
+  activeConnections.inc();
+  socket.on('close', () => {
+    activeConnections.dec();
+  });
+});
+```
+
+### StatsD Integration
+
+```python
+import statsd
+import time
+from functools import wraps
+
+# Initialize StatsD client
+stats = statsd.StatsClient('localhost', 8125, prefix='myapp')
+
+def track_time(metric_name):
+    """Decorator to track execution time"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            start = time.time()
+            try:
+                result = func(*args, **kwargs)
+                stats.timing(metric_name, (time.time() - start) * 1000)
+                stats.incr(f'{metric_name}.success')
+                return result
+            except Exception as e:
+                stats.incr(f'{metric_name}.error')
+                raise
+        return wrapper
+    return decorator
+
+@track_time('api.process_order')
+def process_order(order_id):
+    # Process order logic
+    time.sleep(0.5)
+    return f"Order {order_id} processed"
+
+# Manual metrics
+def create_user(user_data):
+    stats.incr('users.created')
+    stats.gauge('users.total', get_total_users())
+
+    # Track user registration source
+    stats.incr(f'users.source.{user_data["source"]}')
+
+def log_payment(amount):
+    stats.incr('payments.total')
+    stats.incr('payments.amount', amount)
+    stats.gauge('revenue.daily', get_daily_revenue())
+```
+
+## Distributed Tracing
+
+### OpenTelemetry
+
+```typescript
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
+import { Resource } from '@opentelemetry/resources';
+import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
+
+// Configure tracing
+const sdk = new NodeSDK({
+  resource: new Resource({
+    [SemanticResourceAttributes.SERVICE_NAME]: 'my-service',
+    [SemanticResourceAttributes.SERVICE_VERSION]: '1.0.0'
+  }),
+  traceExporter: new JaegerExporter({
+    endpoint: 'http://localhost:14268/api/traces'
+  }),
+  instrumentations: [getNodeAutoInstrumentations()]
+});
+
+sdk.start();
+
+// Manual instrumentation
+import { trace, context, SpanStatusCode } from '@opentelemetry/api';
+
+const tracer = trace.getTracer('my-service');
+
+async function processOrder(orderId: string) {
+  const span = tracer.startSpan('processOrder');
+
+  try {
+    span.setAttributes({
+      'order.id': orderId,
+      'order.source': 'web'
+    });
+
+    // Fetch order
+    const orderSpan = tracer.startSpan('fetchOrder', {}, trace.setSpan(context.active(), span));
+    const order = await fetchOrder(orderId);
+    orderSpan.end();
+
+    // Process payment
+    const paymentSpan = tracer.startSpan('processPayment', {}, trace.setSpan(context.active(), span));
+    await processPayment(order);
+    paymentSpan.setAttributes({
+      'payment.amount': order.total,
+      'payment.currency': order.currency
+    });
+    paymentSpan.end();
+
+    // Update inventory
+    const inventorySpan = tracer.startSpan('updateInventory', {}, trace.setSpan(context.active(), span));
+    await updateInventory(order.items);
+    inventorySpan.end();
+
+    span.setStatus({ code: SpanStatusCode.OK });
+    return order;
+  } catch (error) {
+    span.recordException(error);
+    span.setStatus({
+      code: SpanStatusCode.ERROR,
+      message: error.message
+    });
+    throw error;
+  } finally {
+    span.end();
+  }
+}
+```
+
+## Structured Logging
+
+### Winston Logger
+
+```typescript
+import winston from 'winston';
+
+// Configure logger
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  ),
+  defaultMeta: {
+    service: 'my-service',
+    environment: process.env.NODE_ENV
+  },
+  transports: [
+    new winston.transports.File({
+      filename: 'logs/error.log',
+      level: 'error',
+      maxsize: 10485760, // 10MB
+      maxFiles: 5
+    }),
+    new winston.transports.File({
+      filename: 'logs/combined.log',
+      maxsize: 10485760,
+      maxFiles: 10
+    })
+  ]
+});
+
+// Console output in development
+if (process.env.NODE_ENV !== 'production') {
+  logger.add(new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.colorize(),
+      winston.format.simple()
+    )
+  }));
+}
+
+// Usage
+logger.info('User logged in', {
+  userId: '123',
+  email: 'user@example.com',
+  ip: '192.168.1.1'
+});
+
+logger.error('Payment failed', {
+  orderId: 'order_123',
+  error: error.message,
+  stack: error.stack,
+  amount: 99.99
+});
+
+logger.warn('High memory usage', {
+  memoryUsage: process.memoryUsage(),
+  threshold: '500MB'
+});
+
+// Create child loggers
+const paymentLogger = logger.child({ component: 'payment' });
+paymentLogger.info('Processing payment', { orderId: '123' });
+
+export { logger };
+```
+
+### Pino Logger
+
+```javascript
+const pino = require('pino');
+
+const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  formatters: {
+    level: (label) => {
+      return { level: label };
+    }
+  },
+  timestamp: pino.stdTimeFunctions.isoTime,
+  serializers: {
+    err: pino.stdSerializers.err,
+    req: pino.stdSerializers.req,
+    res: pino.stdSerializers.res
+  }
+});
+
+// Express middleware
+const expressPino = require('express-pino-logger');
+app.use(expressPino({ logger }));
+
+// Usage
+logger.info({ userId: '123' }, 'User logged in');
+logger.error({ err: error, orderId: '123' }, 'Order processing failed');
+
+// Child loggers
+const dbLogger = logger.child({ module: 'database' });
+dbLogger.debug({ query: 'SELECT * FROM users' }, 'Executing query');
+```
+
+## Error Tracking
+
+### Sentry Integration
+
+```typescript
+import * as Sentry from '@sentry/node';
+import { ProfilingIntegration } from '@sentry/profiling-node';
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+  integrations: [
+    new ProfilingIntegration()
+  ],
+  tracesSampleRate: 0.1,
+  profilesSampleRate: 0.1
+});
+
+// Express error handler
+app.use(Sentry.Handlers.requestHandler());
+app.use(Sentry.Handlers.tracingHandler());
+
+// Your routes here
+
+app.use(Sentry.Handlers.errorHandler());
+
+// Custom error tracking
+function processPayment(orderId: string) {
+  try {
+    // Payment logic
+    throw new Error('Payment gateway timeout');
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: {
+        component: 'payment',
+        severity: 'high'
+      },
+      extra: {
+        orderId,
+        timestamp: new Date().toISOString()
+      },
+      user: {
+        id: '123',
+        email: 'user@example.com'
+      }
+    });
+    throw error;
+  }
+}
+
+// Custom breadcrumbs
+Sentry.addBreadcrumb({
+  category: 'auth',
+  message: 'User logged in',
+  level: 'info',
+  data: {
+    userId: '123'
+  }
+});
+```
+
+## Health Checks
+
+```typescript
+import express from 'express';
+import { PrismaClient } from '@prisma/client';
+import Redis from 'ioredis';
+
+const prisma = new PrismaClient();
+const redis = new Redis(process.env.REDIS_URL);
+
+interface HealthStatus {
+  status: 'healthy' | 'unhealthy' | 'degraded';
+  timestamp: string;
+  uptime: number;
+  checks: {
+    [key: string]: {
+      status: 'pass' | 'fail';
+      responseTime?: number;
+      error?: string;
+    };
+  };
+}
+
+async function checkDatabase(): Promise<boolean> {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return true;
+  } catch (error) {
+    console.error('Database check failed:', error);
+    return false;
+  }
+}
+
+async function checkRedis(): Promise<boolean> {
+  try {
+    await redis.ping();
+    return true;
+  } catch (error) {
+    console.error('Redis check failed:', error);
+    return false;
+  }
+}
+
+app.get('/health', async (req, res) => {
+  const start = Date.now();
+
+  const [dbHealthy, redisHealthy] = await Promise.all([
+    checkDatabase(),
+    checkRedis()
+  ]);
+
+  const health: HealthStatus = {
+    status: dbHealthy && redisHealthy ? 'healthy' : 'unhealthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    checks: {
+      database: {
+        status: dbHealthy ? 'pass' : 'fail',
+        responseTime: Date.now() - start
+      },
+      redis: {
+        status: redisHealthy ? 'pass' : 'fail'
+      },
+      memory: {
+        status: 'pass',
+        responseTime: 0
+      }
+    }
+  };
+
+  const statusCode = health.status === 'healthy' ? 200 : 503;
+  res.status(statusCode).json(health);
+});
+
+// Readiness check
+app.get('/ready', async (req, res) => {
+  const isReady = await checkDatabase();
+  res.status(isReady ? 200 : 503).json({
+    ready: isReady
+  });
+});
+
+// Liveness check
+app.get('/live', (req, res) => {
+  res.status(200).json({ alive: true });
+});
+```
+
+## Alerting
+
+### PagerDuty Integration
+
+```python
+import requests
+import json
+
+class PagerDutyAlert:
+    def __init__(self, integration_key):
+        self.integration_key = integration_key
+        self.url = "https://events.pagerduty.com/v2/enqueue"
+
+    def trigger(self, summary, severity, source, custom_details=None):
+        """Trigger a new alert"""
+        payload = {
+            "routing_key": self.integration_key,
+            "event_action": "trigger",
+            "payload": {
+                "summary": summary,
+                "severity": severity,  # critical, error, warning, info
+                "source": source,
+                "custom_details": custom_details or {}
+            }
+        }
+
+        response = requests.post(
+            self.url,
+            headers={"Content-Type": "application/json"},
+            data=json.dumps(payload)
+        )
+
+        return response.json()
+
+    def resolve(self, dedup_key):
+        """Resolve an existing alert"""
+        payload = {
+            "routing_key": self.integration_key,
+            "event_action": "resolve",
+            "dedup_key": dedup_key
+        }
+
+        response = requests.post(
+            self.url,
+            headers={"Content-Type": "application/json"},
+            data=json.dumps(payload)
+        )
+
+        return response.json()
+
+# Usage
+pagerduty = PagerDutyAlert(os.getenv('PAGERDUTY_KEY'))
+
+# Trigger alert
+pagerduty.trigger(
+    summary="High error rate detected",
+    severity="error",
+    source="api-server-01",
+    custom_details={
+        "error_rate": "15%",
+        "threshold": "5%",
+        "endpoint": "/api/orders"
+    }
+)
+```
+
+<Warning>
+Always implement proper monitoring before going to production. You can't fix what you can't measure!
+</Warning>
+
+<Tip>
+Use different log levels appropriately: DEBUG for development details, INFO for general events, WARN for potential issues, and ERROR for actual failures.
+</Tip>

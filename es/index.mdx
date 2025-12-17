@@ -1,0 +1,85 @@
+---
+title: "Introducción"
+description: "Bienvenido al nuevo hogar de tu documentación"
+---
+
+# Bienvenido a la Documentación
+
+Bienvenido a la documentación completa de nuestra plataforma. Aquí encontrarás toda la información que necesitas para construir, integrar y desplegar aplicaciones.
+
+## Inicio Rápido
+
+Comienza en minutos:
+
+<Steps>
+  <Step title="Crear una Cuenta">
+    Regístrate en la plataforma y obtén tu clave API
+  </Step>
+  <Step title="Instalar el SDK">
+    Instala el SDK para tu lenguaje de programación preferido
+  </Step>
+  <Step title="Hacer tu Primera Solicitud">
+    Realiza tu primera llamada a la API
+  </Step>
+</Steps>
+
+## Características Principales
+
+<CardGroup cols={2}>
+  <Card title="Autenticación" icon="lock" href="/es/guides/authentication">
+    Implementa JWT, OAuth y otros métodos de autenticación
+  </Card>
+  <Card title="Optimización de Base de Datos" icon="database" href="/es/guides/database-optimization">
+    Optimiza el rendimiento de tu base de datos
+  </Card>
+  <Card title="Diseño de API" icon="code" href="/es/guides/api-design">
+    Construye APIs RESTful robustas
+  </Card>
+  <Card title="Microservicios" icon="server" href="/es/guides/microservices">
+    Aprende arquitectura de microservicios escalable
+  </Card>
+</CardGroup>
+
+## Antes de Comenzar
+
+Antes de comenzar el desarrollo, asegúrate de tener:
+
+- Una cuenta válida y clave API
+- Node.js 18+ o Python 3.9+
+- Conocimiento básico de APIs RESTful
+
+## Código de Ejemplo
+
+```javascript
+// Ejemplo de inicio rápido
+const client = new APIClient({
+  apiKey: 'tu_clave_api_aqui'
+});
+
+const users = await client.users.list();
+console.log(users);
+```
+
+```python
+# Ejemplo en Python
+from api_client import APIClient
+
+client = APIClient(api_key='tu_clave_api_aqui')
+users = client.users.list()
+print(users)
+```
+
+<Note>
+Esta documentación se actualiza constantemente. Consulta el registro de cambios para conocer las últimas actualizaciones.
+</Note>
+
+## ¿Necesitas Ayuda?
+
+<CardGroup cols={2}>
+  <Card title="Comunidad" icon="users">
+    Únete a nuestra comunidad de desarrolladores y haz preguntas
+  </Card>
+  <Card title="Soporte" icon="life-ring">
+    Contacta con nuestro equipo de soporte si encuentras problemas
+  </Card>
+</CardGroup>

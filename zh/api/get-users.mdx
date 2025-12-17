@@ -1,0 +1,88 @@
+---
+title: "获取用户"
+api: "GET /api/v1/users/{id}"
+description: "通过ID获取用户"
+---
+
+## 路径参数
+
+<ParamField path="id" type="string" required>
+  要获取的用户的唯一标识符
+</ParamField>
+
+## 响应
+
+<ResponseField name="id" type="string">
+  用户的唯一标识符
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  用户的全名
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  用户的电子邮件地址
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  账户创建日期（ISO 8601格式）
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.example.com/api/v1/users/user_123 \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```python Python
+import requests
+
+url = "https://api.example.com/api/v1/users/user_123"
+headers = {"Authorization": "Bearer YOUR_API_KEY"}
+
+response = requests.get(url, headers=headers)
+print(response.json())
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.example.com/api/v1/users/user_123', {
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY'
+  }
+});
+
+const data = await response.json();
+console.log(data);
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 成功
+{
+  "id": "user_123",
+  "name": "张三",
+  "email": "zhang@example.com",
+  "bio": "软件工程师",
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-20T14:25:00Z"
+}
+```
+
+```json 404 未找到
+{
+  "error": {
+    "code": "USER_NOT_FOUND",
+    "message": "未找到指定ID的用户"
+  }
+}
+```
+
+```json 401 未授权
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "需要有效的认证令牌"
+  }
+}
+```
+</ResponseExample>

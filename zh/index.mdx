@@ -1,0 +1,85 @@
+---
+title: "介绍"
+description: "欢迎来到您文档的新家"
+---
+
+# 欢迎来到文档
+
+欢迎来到我们平台的综合文档。您将在这里找到构建、集成和部署应用程序所需的所有信息。
+
+## 快速开始
+
+几分钟内开始：
+
+<Steps>
+  <Step title="创建账户">
+    在平台上注册并获取您的API密钥
+  </Step>
+  <Step title="安装SDK">
+    为您喜欢的编程语言安装SDK
+  </Step>
+  <Step title="发出第一个请求">
+    进行您的第一次API调用
+  </Step>
+</Steps>
+
+## 主要功能
+
+<CardGroup cols={2}>
+  <Card title="身份验证" icon="lock" href="/zh/guides/authentication">
+    实施JWT、OAuth和其他身份验证方法
+  </Card>
+  <Card title="数据库优化" icon="database" href="/zh/guides/database-optimization">
+    优化数据库性能
+  </Card>
+  <Card title="API设计" icon="code" href="/zh/guides/api-design">
+    构建强大的RESTful API
+  </Card>
+  <Card title="微服务" icon="server" href="/zh/guides/microservices">
+    学习可扩展的微服务架构
+  </Card>
+</CardGroup>
+
+## 开始之前
+
+在开始开发之前，请确保您有：
+
+- 有效的账户和API密钥
+- Node.js 18+或Python 3.9+
+- RESTful API的基础知识
+
+## 示例代码
+
+```javascript
+// 快速开始示例
+const client = new APIClient({
+  apiKey: '您的api密钥'
+});
+
+const users = await client.users.list();
+console.log(users);
+```
+
+```python
+# Python示例
+from api_client import APIClient
+
+client = APIClient(api_key='您的api密钥')
+users = client.users.list()
+print(users)
+```
+
+<Note>
+此文档会不断更新。请查看更改日志以获取最新更新。
+</Note>
+
+## 需要帮助？
+
+<CardGroup cols={2}>
+  <Card title="社区" icon="users">
+    加入我们的开发者社区并提问
+  </Card>
+  <Card title="支持" icon="life-ring">
+    如果遇到问题，请联系我们的支持团队
+  </Card>
+</CardGroup>

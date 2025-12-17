@@ -1,0 +1,532 @@
+---
+title: "Microservices Architecture"
+description: "Build scalable microservices with best practices and patterns"
+---
+
+# Microservices Architecture
+
+Microservices enable independent development, deployment, and scaling of services. This guide covers patterns, communication, and best practices.
+
+## Service Communication
+
+### REST Communication
+
+```java
+@RestController
+@RequestMapping("/api/v1/orders")
+public class OrderController {
+    private final OrderService orderService;
+    private final RestTemplate restTemplate;
+
+    @PostMapping
+    public ResponseEntity<Order> createOrder(@RequestBody OrderRequest request) {
+        // Validate inventory
+        InventoryResponse inventory = restTemplate.getForObject(
+            "http://inventory-service/api/v1/inventory/" + request.getProductId(),
+            InventoryResponse.class
+        );
+
+        if (inventory == null || inventory.getQuantity() < request.getQuantity()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Get product details
+        Product product = restTemplate.getForObject(
+            "http://product-service/api/v1/products/" + request.getProductId(),
+            Product.class
+        );
+
+        // Create order
+        Order order = orderService.create(request, product);
+
+        // Update inventory
+        restTemplate.postForObject(
+            "http://inventory-service/api/v1/inventory/reserve",
+            new ReserveRequest(request.getProductId(), request.getQuantity()),
+            Void.class
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(order);
+    }
+}
+```
+
+### Message Queue Communication
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { RabbitMQService } from './rabbitmq.service';
+
+@Injectable()
+export class OrderService {
+  constructor(private readonly rabbitMQ: RabbitMQService) {}
+
+  async createOrder(orderData: CreateOrderDto) {
+    // Create order in database
+    const order = await this.orderRepository.save(orderData);
+
+    // Publish order created event
+    await this.rabbitMQ.publish('orders', 'order.created', {
+      orderId: order.id,
+      userId: order.userId,
+      items: order.items,
+      totalAmount: order.totalAmount,
+      timestamp: new Date()
+    });
+
+    return order;
+  }
+}
+
+// Inventory Service - Consumer
+@Injectable()
+export class InventoryConsumer {
+  constructor(private readonly inventoryService: InventoryService) {}
+
+  @RabbitSubscribe({
+    exchange: 'orders',
+    routingKey: 'order.created',
+    queue: 'inventory.order-created'
+  })
+  async handleOrderCreated(message: OrderCreatedEvent) {
+    try {
+      await this.inventoryService.reserveItems(message.items);
+
+      // Publish inventory reserved event
+      await this.rabbitMQ.publish('inventory', 'inventory.reserved', {
+        orderId: message.orderId,
+        items: message.items
+      });
+    } catch (error) {
+      // Publish inventory failed event
+      await this.rabbitMQ.publish('inventory', 'inventory.reservation-failed', {
+        orderId: message.orderId,
+        reason: error.message
+      });
+    }
+  }
+}
+```
+
+### gRPC Communication
+
+```protobuf
+// user.proto
+syntax = "proto3";
+
+package user;
+
+service UserService {
+  rpc GetUser (GetUserRequest) returns (UserResponse);
+  rpc CreateUser (CreateUserRequest) returns (UserResponse);
+  rpc ListUsers (ListUsersRequest) returns (stream UserResponse);
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message CreateUserRequest {
+  string name = 1;
+  string email = 2;
+  string password = 3;
+}
+
+message UserResponse {
+  string user_id = 1;
+  string name = 2;
+  string email = 3;
+  string created_at = 4;
+}
+
+message ListUsersRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+```
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "net"
+
+    pb "github.com/yourorg/userservice/proto"
+    "google.golang.org/grpc"
+)
+
+type server struct {
+    pb.UnimplementedUserServiceServer
+    db *Database
+}
+
+func (s *server) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.UserResponse, error) {
+    user, err := s.db.FindUserByID(req.UserId)
+    if err != nil {
+        return nil, err
+    }
+
+    return &pb.UserResponse{
+        UserId:    user.ID,
+        Name:      user.Name,
+        Email:     user.Email,
+        CreatedAt: user.CreatedAt.Format(time.RFC3339),
+    }, nil
+}
+
+func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.UserResponse, error) {
+    user := &User{
+        Name:     req.Name,
+        Email:    req.Email,
+        Password: hashPassword(req.Password),
+    }
+
+    if err := s.db.CreateUser(user); err != nil {
+        return nil, err
+    }
+
+    return &pb.UserResponse{
+        UserId:    user.ID,
+        Name:      user.Name,
+        Email:     user.Email,
+        CreatedAt: user.CreatedAt.Format(time.RFC3339),
+    }, nil
+}
+
+func (s *server) ListUsers(req *pb.ListUsersRequest, stream pb.UserService_ListUsersServer) error {
+    users, err := s.db.ListUsers(req.PageSize, req.PageToken)
+    if err != nil {
+        return err
+    }
+
+    for _, user := range users {
+        if err := stream.Send(&pb.UserResponse{
+            UserId:    user.ID,
+            Name:      user.Name,
+            Email:     user.Email,
+            CreatedAt: user.CreatedAt.Format(time.RFC3339),
+        }); err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+
+func main() {
+    lis, err := net.Listen("tcp", ":50051")
+    if err != nil {
+        log.Fatalf("failed to listen: %v", err)
+    }
+
+    s := grpc.NewServer()
+    pb.RegisterUserServiceServer(s, &server{db: NewDatabase()})
+
+    log.Println("Server listening on :50051")
+    if err := s.Serve(lis); err != nil {
+        log.Fatalf("failed to serve: %v", err)
+    }
+}
+```
+
+## Service Discovery
+
+### Consul
+
+```python
+import consul
+import requests
+from flask import Flask
+
+app = Flask(__name__)
+consul_client = consul.Consul(host='localhost', port=8500)
+
+def register_service():
+    """Register this service with Consul"""
+    consul_client.agent.service.register(
+        name='order-service',
+        service_id='order-service-1',
+        address='localhost',
+        port=5000,
+        tags=['api', 'orders'],
+        check=consul.Check.http(
+            'http://localhost:5000/health',
+            interval='10s',
+            timeout='5s'
+        )
+    )
+
+def deregister_service():
+    """Deregister this service from Consul"""
+    consul_client.agent.service.deregister('order-service-1')
+
+def discover_service(service_name):
+    """Discover a service by name"""
+    index, services = consul_client.health.service(service_name, passing=True)
+
+    if not services:
+        raise Exception(f"Service {service_name} not found")
+
+    # Return the first healthy instance
+    service = services[0]['Service']
+    return f"http://{service['Address']}:{service['Port']}"
+
+@app.route('/health')
+def health():
+    return {'status': 'healthy'}, 200
+
+@app.route('/api/orders', methods=['POST'])
+def create_order():
+    # Discover inventory service
+    inventory_url = discover_service('inventory-service')
+
+    # Make request to inventory service
+    response = requests.get(f"{inventory_url}/api/inventory/check")
+
+    if response.status_code == 200:
+        # Create order logic
+        return {'order_id': '123'}, 201
+
+    return {'error': 'Inventory check failed'}, 500
+
+if __name__ == '__main__':
+    register_service()
+    try:
+        app.run(port=5000)
+    finally:
+        deregister_service()
+```
+
+## Circuit Breaker Pattern
+
+```java
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+
+import java.time.Duration;
+import java.util.function.Supplier;
+
+public class ResilientServiceClient {
+    private final CircuitBreaker circuitBreaker;
+    private final RestTemplate restTemplate;
+
+    public ResilientServiceClient() {
+        CircuitBreakerConfig config = CircuitBreakerConfig.custom()
+            .slidingWindowSize(10)
+            .failureRateThreshold(50)
+            .waitDurationInOpenState(Duration.ofSeconds(30))
+            .permittedNumberOfCallsInHalfOpenState(5)
+            .slowCallRateThreshold(100)
+            .slowCallDurationThreshold(Duration.ofSeconds(2))
+            .build();
+
+        CircuitBreakerRegistry registry = CircuitBreakerRegistry.of(config);
+        this.circuitBreaker = registry.circuitBreaker("inventoryService");
+        this.restTemplate = new RestTemplate();
+    }
+
+    public InventoryResponse checkInventory(String productId) {
+        Supplier<InventoryResponse> supplier = CircuitBreaker
+            .decorateSupplier(circuitBreaker, () -> {
+                try {
+                    return restTemplate.getForObject(
+                        "http://inventory-service/api/inventory/" + productId,
+                        InventoryResponse.class
+                    );
+                } catch (Exception e) {
+                    throw new RuntimeException("Inventory service unavailable", e);
+                }
+            });
+
+        try {
+            return supplier.get();
+        } catch (Exception e) {
+            // Fallback response
+            return new InventoryResponse(productId, 0, false);
+        }
+    }
+
+    public CircuitBreaker.State getCircuitBreakerState() {
+        return circuitBreaker.getState();
+    }
+}
+```
+
+## Saga Pattern
+
+```typescript
+// Order Saga Orchestrator
+import { Injectable } from '@nestjs/common';
+
+interface SagaStep {
+  execute: () => Promise<any>;
+  compensate: () => Promise<void>;
+}
+
+@Injectable()
+export class OrderSaga {
+  private executedSteps: SagaStep[] = [];
+
+  async execute(orderData: CreateOrderDto): Promise<Order> {
+    try {
+      // Step 1: Create order
+      const createOrderStep: SagaStep = {
+        execute: async () => {
+          const order = await this.orderService.create(orderData);
+          this.executedSteps.push(createOrderStep);
+          return order;
+        },
+        compensate: async () => {
+          await this.orderService.cancel(order.id);
+        }
+      };
+      const order = await createOrderStep.execute();
+
+      // Step 2: Reserve inventory
+      const reserveInventoryStep: SagaStep = {
+        execute: async () => {
+          await this.inventoryService.reserve(order.items);
+          this.executedSteps.push(reserveInventoryStep);
+        },
+        compensate: async () => {
+          await this.inventoryService.release(order.items);
+        }
+      };
+      await reserveInventoryStep.execute();
+
+      // Step 3: Process payment
+      const processPaymentStep: SagaStep = {
+        execute: async () => {
+          await this.paymentService.charge(order.totalAmount);
+          this.executedSteps.push(processPaymentStep);
+        },
+        compensate: async () => {
+          await this.paymentService.refund(order.totalAmount);
+        }
+      };
+      await processPaymentStep.execute();
+
+      // Step 4: Update order status
+      await this.orderService.updateStatus(order.id, 'COMPLETED');
+
+      return order;
+
+    } catch (error) {
+      // Compensate in reverse order
+      await this.compensate();
+      throw error;
+    }
+  }
+
+  private async compensate(): Promise<void> {
+    const steps = [...this.executedSteps].reverse();
+
+    for (const step of steps) {
+      try {
+        await step.compensate();
+      } catch (error) {
+        console.error('Compensation failed:', error);
+        // Log for manual intervention
+      }
+    }
+
+    this.executedSteps = [];
+  }
+}
+```
+
+## API Gateway
+
+```javascript
+const express = require('express');
+const { createProxyMiddleware } = require('http-proxy-middleware');
+const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
+
+const app = express();
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+
+app.use(limiter);
+
+// Authentication middleware
+const authenticate = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
+// Service routes
+app.use('/api/users',
+  authenticate,
+  createProxyMiddleware({
+    target: 'http://user-service:3001',
+    changeOrigin: true,
+    pathRewrite: {
+      '^/api/users': '/api/v1/users'
+    },
+    onProxyReq: (proxyReq, req) => {
+      proxyReq.setHeader('X-User-ID', req.user.userId);
+    }
+  })
+);
+
+app.use('/api/orders',
+  authenticate,
+  createProxyMiddleware({
+    target: 'http://order-service:3002',
+    changeOrigin: true,
+    pathRewrite: {
+      '^/api/orders': '/api/v1/orders'
+    }
+  })
+);
+
+app.use('/api/products',
+  createProxyMiddleware({
+    target: 'http://product-service:3003',
+    changeOrigin: true
+  })
+);
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy' });
+});
+
+app.listen(3000, () => {
+  console.log('API Gateway running on port 3000');
+});
+```
+
+<CardGroup cols={2}>
+  <Card title="Service Mesh" icon="network-wired">
+    Use Istio or Linkerd for advanced traffic management and observability
+  </Card>
+  <Card title="Distributed Tracing" icon="route">
+    Implement OpenTelemetry for end-to-end request tracing
+  </Card>
+  <Card title="Centralized Logging" icon="file-lines">
+    Use ELK stack or Grafana Loki for log aggregation
+  </Card>
+  <Card title="Configuration Management" icon="gear">
+    Externalize configuration with Spring Cloud Config or Consul
+  </Card>
+</CardGroup>

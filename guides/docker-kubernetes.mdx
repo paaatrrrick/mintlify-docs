@@ -1,0 +1,627 @@
+---
+title: "Docker & Kubernetes"
+description: "Containerize and orchestrate your applications"
+---
+
+# Docker & Kubernetes
+
+Learn how to containerize applications with Docker and orchestrate them with Kubernetes for scalable, reliable deployments.
+
+## Docker Fundamentals
+
+### Creating a Dockerfile
+
+```dockerfile
+# Multi-stage Node.js application
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# Copy source code
+COPY . .
+
+# Build application
+RUN npm run build
+
+# Production stage
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Copy built application
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/package.json ./
+
+# Switch to non-root user
+USER nodejs
+
+EXPOSE 3000
+
+CMD ["node", "dist/main.js"]
+```
+
+```dockerfile
+# Python Flask application
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
+
+EXPOSE 5000
+
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "app:app"]
+```
+
+### Docker Compose
+
+```yaml
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:password@db:5432/myapp
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=myapp
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - web
+    networks:
+      - app-network
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  app-network:
+    driver: bridge
+```
+
+### Docker Commands
+
+```bash
+# Build an image
+docker build -t myapp:latest .
+
+# Build with build arguments
+docker build --build-arg NODE_ENV=production -t myapp:latest .
+
+# Run a container
+docker run -d -p 3000:3000 --name myapp myapp:latest
+
+# Run with environment variables
+docker run -d -p 3000:3000 \
+  -e DATABASE_URL=postgresql://localhost/mydb \
+  -e REDIS_URL=redis://localhost:6379 \
+  --name myapp myapp:latest
+
+# View logs
+docker logs -f myapp
+
+# Execute command in running container
+docker exec -it myapp /bin/sh
+
+# Stop and remove container
+docker stop myapp && docker rm myapp
+
+# Remove dangling images
+docker image prune -f
+
+# Remove all stopped containers
+docker container prune -f
+
+# View container resource usage
+docker stats
+
+# Inspect container
+docker inspect myapp
+
+# Copy files from container
+docker cp myapp:/app/logs ./logs
+```
+
+## Kubernetes Deployment
+
+### Deployment Configuration
+
+```yaml
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  labels:
+    app: myapp
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+        version: v1
+    spec:
+      containers:
+      - name: myapp
+        image: myregistry.com/myapp:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: myapp-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: myapp-config
+              key: redis-url
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        - name: uploads
+          mountPath: /app/uploads
+      volumes:
+      - name: config
+        configMap:
+          name: myapp-config
+      - name: uploads
+        persistentVolumeClaim:
+          claimName: myapp-uploads
+      imagePullSecrets:
+      - name: registry-credentials
+```
+
+### Service Configuration
+
+```yaml
+# service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-service
+  labels:
+    app: myapp
+spec:
+  type: ClusterIP
+  selector:
+    app: myapp
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3000
+    name: http
+  sessionAffinity: ClientIP
+
+---
+# Headless service for StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-headless
+spec:
+  clusterIP: None
+  selector:
+    app: myapp
+  ports:
+  - port: 3000
+    name: http
+```
+
+### Ingress Configuration
+
+```yaml
+# ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: myapp-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+spec:
+  tls:
+  - hosts:
+    - myapp.example.com
+    secretName: myapp-tls
+  rules:
+  - host: myapp.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: myapp-service
+            port:
+              number: 80
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+```
+
+### ConfigMap and Secret
+
+```yaml
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-config
+data:
+  redis-url: redis://redis-service:6379
+  log-level: info
+  feature-flags: |
+    {
+      "newFeature": true,
+      "betaFeature": false
+    }
+
+---
+# secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: myapp-secrets
+type: Opaque
+stringData:
+  database-url: postgresql://user:password@postgres:5432/mydb
+  jwt-secret: your-super-secret-key
+  api-key: your-api-key
+```
+
+### Horizontal Pod Autoscaler
+
+```yaml
+# hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: myapp-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: myapp
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 2
+        periodSeconds: 30
+      selectPolicy: Max
+```
+
+### StatefulSet
+
+```yaml
+# statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  serviceName: postgres-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-storage
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: fast-ssd
+      resources:
+        requests:
+          storage: 10Gi
+```
+
+### Kubectl Commands
+
+```bash
+# Apply configurations
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+kubectl apply -f ingress.yaml
+
+# Apply all YAML files in directory
+kubectl apply -f ./k8s/
+
+# Get resources
+kubectl get pods
+kubectl get services
+kubectl get deployments
+kubectl get ingress
+
+# Describe resources
+kubectl describe pod myapp-xxxx
+kubectl describe deployment myapp
+
+# View logs
+kubectl logs -f myapp-xxxx
+kubectl logs -f myapp-xxxx -c container-name
+
+# Execute commands in pod
+kubectl exec -it myapp-xxxx -- /bin/sh
+
+# Port forwarding
+kubectl port-forward myapp-xxxx 3000:3000
+kubectl port-forward service/myapp-service 3000:80
+
+# Scale deployment
+kubectl scale deployment myapp --replicas=5
+
+# Rolling update
+kubectl set image deployment/myapp myapp=myapp:2.0.0
+kubectl rollout status deployment/myapp
+kubectl rollout history deployment/myapp
+kubectl rollout undo deployment/myapp
+
+# Delete resources
+kubectl delete pod myapp-xxxx
+kubectl delete deployment myapp
+kubectl delete -f deployment.yaml
+
+# Get resource usage
+kubectl top nodes
+kubectl top pods
+
+# Debug
+kubectl get events --sort-by=.metadata.creationTimestamp
+kubectl describe pod myapp-xxxx
+kubectl logs myapp-xxxx --previous
+```
+
+## Helm Charts
+
+```yaml
+# Chart.yaml
+apiVersion: v2
+name: myapp
+description: A Helm chart for MyApp
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+---
+# values.yaml
+replicaCount: 3
+
+image:
+  repository: myregistry.com/myapp
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: myapp.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: myapp-tls
+      hosts:
+        - myapp.example.com
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+env:
+  - name: NODE_ENV
+    value: production
+```
+
+```bash
+# Helm commands
+helm install myapp ./myapp-chart
+helm upgrade myapp ./myapp-chart
+helm rollback myapp 1
+helm uninstall myapp
+helm list
+helm history myapp
+```
+
+<Warning>
+Always set resource limits and requests to prevent resource exhaustion and ensure fair scheduling.
+</Warning>

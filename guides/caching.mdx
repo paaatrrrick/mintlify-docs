@@ -1,0 +1,290 @@
+---
+title: "Caching Strategies"
+description: "Learn how to implement effective caching strategies to improve performance"
+---
+
+# Caching Strategies
+
+Caching is essential for building high-performance applications. This guide covers various caching strategies and implementation patterns.
+
+## Cache Types
+
+### In-Memory Caching
+
+The fastest caching option, perfect for frequently accessed data:
+
+```javascript
+class MemoryCache {
+  constructor() {
+    this.cache = new Map();
+  }
+
+  set(key, value, ttl = 3600000) {
+    const expiresAt = Date.now() + ttl;
+    this.cache.set(key, { value, expiresAt });
+  }
+
+  get(key) {
+    const item = this.cache.get(key);
+    if (!item) return null;
+
+    if (Date.now() > item.expiresAt) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return item.value;
+  }
+
+  delete(key) {
+    this.cache.delete(key);
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+}
+
+const cache = new MemoryCache();
+cache.set('user:123', { name: 'John', email: 'john@example.com' }, 60000);
+```
+
+### Redis Caching
+
+For distributed systems, Redis provides a robust caching solution:
+
+```python
+import redis
+import json
+from datetime import timedelta
+
+class RedisCache:
+    def __init__(self, host='localhost', port=6379, db=0):
+        self.client = redis.Redis(host=host, port=port, db=db)
+
+    def set(self, key, value, ttl=3600):
+        """Set a value with optional TTL in seconds"""
+        serialized = json.dumps(value)
+        self.client.setex(key, timedelta(seconds=ttl), serialized)
+
+    def get(self, key):
+        """Get a value from cache"""
+        value = self.client.get(key)
+        if value:
+            return json.loads(value)
+        return None
+
+    def delete(self, key):
+        """Delete a key from cache"""
+        self.client.delete(key)
+
+    def clear_pattern(self, pattern):
+        """Clear all keys matching a pattern"""
+        keys = self.client.keys(pattern)
+        if keys:
+            self.client.delete(*keys)
+
+# Usage
+cache = RedisCache()
+cache.set('session:abc123', {'user_id': 1, 'role': 'admin'}, ttl=1800)
+session = cache.get('session:abc123')
+```
+
+## Caching Patterns
+
+### Cache-Aside Pattern
+
+The most common caching pattern:
+
+```go
+package cache
+
+import (
+    "context"
+    "encoding/json"
+    "time"
+
+    "github.com/go-redis/redis/v8"
+)
+
+type UserCache struct {
+    redis *redis.Client
+    db    *sql.DB
+}
+
+func (c *UserCache) GetUser(ctx context.Context, userID int) (*User, error) {
+    // Try to get from cache first
+    cacheKey := fmt.Sprintf("user:%d", userID)
+    cached, err := c.redis.Get(ctx, cacheKey).Result()
+
+    if err == nil {
+        var user User
+        json.Unmarshal([]byte(cached), &user)
+        return &user, nil
+    }
+
+    // Cache miss - fetch from database
+    user, err := c.fetchUserFromDB(ctx, userID)
+    if err != nil {
+        return nil, err
+    }
+
+    // Store in cache for future requests
+    userData, _ := json.Marshal(user)
+    c.redis.Set(ctx, cacheKey, userData, 15*time.Minute)
+
+    return user, nil
+}
+```
+
+### Write-Through Cache
+
+Ensures cache consistency by writing to cache and database simultaneously:
+
+```java
+public class WriteThroughCache {
+    private final RedisTemplate<String, Object> redis;
+    private final UserRepository repository;
+
+    public User saveUser(User user) {
+        // Write to database first
+        User savedUser = repository.save(user);
+
+        // Then update cache
+        String cacheKey = "user:" + savedUser.getId();
+        redis.opsForValue().set(
+            cacheKey,
+            savedUser,
+            Duration.ofMinutes(30)
+        );
+
+        return savedUser;
+    }
+
+    public void deleteUser(Long userId) {
+        // Delete from database
+        repository.deleteById(userId);
+
+        // Remove from cache
+        String cacheKey = "user:" + userId;
+        redis.delete(cacheKey);
+    }
+}
+```
+
+### Write-Behind Cache
+
+Improves write performance by asynchronously writing to the database:
+
+```ruby
+class WriteBehindCache
+  def initialize
+    @redis = Redis.new
+    @queue = Queue.new
+    start_background_worker
+  end
+
+  def save(key, value)
+    # Write to cache immediately
+    @redis.setex(key, 3600, value.to_json)
+
+    # Queue database write
+    @queue.push({ action: :save, key: key, value: value })
+  end
+
+  def delete(key)
+    # Remove from cache immediately
+    @redis.del(key)
+
+    # Queue database delete
+    @queue.push({ action: :delete, key: key })
+  end
+
+  private
+
+  def start_background_worker
+    Thread.new do
+      loop do
+        operation = @queue.pop
+        process_operation(operation)
+      end
+    end
+  end
+
+  def process_operation(op)
+    case op[:action]
+    when :save
+      DB.save(op[:key], op[:value])
+    when :delete
+      DB.delete(op[:key])
+    end
+  rescue => e
+    Logger.error("Failed to process cache operation: #{e.message}")
+  end
+end
+```
+
+## Cache Invalidation Strategies
+
+<CardGroup cols={2}>
+  <Card title="Time-based" icon="clock">
+    Set TTL (Time To Live) for automatic expiration
+  </Card>
+  <Card title="Event-based" icon="bolt">
+    Invalidate cache on data changes
+  </Card>
+  <Card title="Pattern-based" icon="grid">
+    Clear multiple related cache entries
+  </Card>
+  <Card title="Manual" icon="hand">
+    Explicit cache clearing on demand
+  </Card>
+</CardGroup>
+
+## Performance Optimization
+
+```php
+<?php
+
+class CacheOptimizer {
+    private $cache;
+    private $stats = [];
+
+    public function get($key, $callback, $ttl = 3600) {
+        $startTime = microtime(true);
+
+        // Try cache first
+        $value = $this->cache->get($key);
+
+        if ($value !== null) {
+            $this->recordHit($key, microtime(true) - $startTime);
+            return $value;
+        }
+
+        // Cache miss - execute callback
+        $value = $callback();
+        $this->cache->set($key, $value, $ttl);
+
+        $this->recordMiss($key, microtime(true) - $startTime);
+        return $value;
+    }
+
+    private function recordHit($key, $duration) {
+        $this->stats[$key]['hits'] = ($this->stats[$key]['hits'] ?? 0) + 1;
+        $this->stats[$key]['hit_duration'] = $duration;
+    }
+
+    private function recordMiss($key, $duration) {
+        $this->stats[$key]['misses'] = ($this->stats[$key]['misses'] ?? 0) + 1;
+        $this->stats[$key]['miss_duration'] = $duration;
+    }
+
+    public function getStats() {
+        return $this->stats;
+    }
+}
+```
+
+<Tip>
+  Monitor your cache hit rate. A hit rate below 80% might indicate your caching strategy needs adjustment.
+</Tip>
