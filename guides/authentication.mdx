@@ -129,3 +129,142 @@ function verifyMFAToken(secret: string, token: string): boolean {
 <Warning>
   Always validate MFA tokens on the server side. Never trust client-side validation alone.
 </Warning>
+
+## Interactive JWT Decoder
+
+Try decoding a JWT token in real-time:
+
+<div id="jwt-decoder-container">
+  <style>{`
+    .jwt-decoder {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      font-family: 'Monaco', 'Menlo', monospace;
+    }
+    .jwt-input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 15px;
+      font-family: monospace;
+    }
+    .jwt-output {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      min-height: 150px;
+    }
+    .jwt-section {
+      margin: 10px 0;
+    }
+    .jwt-label {
+      color: #66d9ef;
+      font-weight: bold;
+    }
+  `}</style>
+
+  <div class="jwt-decoder">
+    <input
+      type="text"
+      id="jwt-token-input"
+      class="jwt-input"
+      placeholder="Paste your JWT token here..."
+      defaultValue="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+    />
+    <div id="jwt-output" class="jwt-output">Decoded JWT will appear here...</div>
+  </div>
+
+  <script dangerouslySetInnerHTML={{__html: `
+    (function() {
+      function base64UrlDecode(str) {
+        let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+        const pad = base64.length % 4;
+        if (pad) {
+          base64 += '='.repeat(4 - pad);
+        }
+        try {
+          return JSON.parse(atob(base64));
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function decodeJWT(token) {
+        const parts = token.split('.');
+        if (parts.length !== 3) {
+          return { error: 'Invalid JWT format. Must have 3 parts separated by dots.' };
+        }
+
+        const header = base64UrlDecode(parts[0]);
+        const payload = base64UrlDecode(parts[1]);
+
+        if (!header || !payload) {
+          return { error: 'Failed to decode JWT. Invalid base64 encoding.' };
+        }
+
+        return { header, payload, signature: parts[2] };
+      }
+
+      function updateJWTOutput() {
+        const input = document.getElementById('jwt-token-input');
+        const output = document.getElementById('jwt-output');
+
+        if (!input || !output) return;
+
+        const token = input.value.trim();
+
+        if (!token) {
+          output.innerHTML = '<div style="color: #888;">Paste a JWT token to decode it...</div>';
+          return;
+        }
+
+        const decoded = decodeJWT(token);
+
+        if (decoded.error) {
+          output.innerHTML = \`<div style="color: #ff6b6b;">\${decoded.error}</div>\`;
+          return;
+        }
+
+        const formatJSON = (obj) => JSON.stringify(obj, null, 2);
+
+        output.innerHTML = \`
+          <div class="jwt-section">
+            <span class="jwt-label">HEADER:</span>
+            <pre>\${formatJSON(decoded.header)}</pre>
+          </div>
+          <div class="jwt-section">
+            <span class="jwt-label">PAYLOAD:</span>
+            <pre>\${formatJSON(decoded.payload)}</pre>
+          </div>
+          <div class="jwt-section">
+            <span class="jwt-label">SIGNATURE:</span>
+            <pre>\${decoded.signature}</pre>
+          </div>
+        \`;
+      }
+
+      // Initialize on page load
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+          const input = document.getElementById('jwt-token-input');
+          if (input) {
+            input.addEventListener('input', updateJWTOutput);
+            updateJWTOutput();
+          }
+        });
+      } else {
+        const input = document.getElementById('jwt-token-input');
+        if (input) {
+          input.addEventListener('input', updateJWTOutput);
+          updateJWTOutput();
+        }
+      }
+    })();
+  `}} />
+</div>

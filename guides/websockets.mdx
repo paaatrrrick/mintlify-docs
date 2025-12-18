@@ -510,3 +510,275 @@ io.on('connection', (socket) => {
 <Warning>
 Always validate and sanitize messages on the server side to prevent XSS attacks and other security vulnerabilities.
 </Warning>
+
+## Live WebSocket Connection Simulator
+
+Experience WebSocket communication in real-time:
+
+<div id="websocket-simulator">
+  <style>{`
+    .ws-simulator {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      border-radius: 12px;
+      padding: 25px;
+      margin: 20px 0;
+      color: white;
+    }
+    .ws-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+    }
+    .status-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    .status-connected {
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+    }
+    .status-disconnected {
+      background: #ef4444;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .ws-controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .ws-button {
+      padding: 10px 20px;
+      background: rgba(255, 255, 255, 0.9);
+      color: #f5576c;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .ws-button:hover {
+      background: white;
+      transform: translateY(-2px);
+    }
+    .ws-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .ws-chat {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 13px;
+    }
+    .ws-message {
+      margin: 8px 0;
+      padding: 8px 12px;
+      border-radius: 6px;
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    .msg-sent {
+      background: rgba(59, 130, 246, 0.3);
+      margin-left: 20%;
+    }
+    .msg-received {
+      background: rgba(16, 185, 129, 0.3);
+      margin-right: 20%;
+    }
+    .msg-system {
+      background: rgba(139, 92, 246, 0.3);
+      text-align: center;
+      font-style: italic;
+      opacity: 0.8;
+    }
+    .ws-input-group {
+      display: flex;
+      gap: 10px;
+    }
+    .ws-input {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-family: monospace;
+    }
+    .timestamp {
+      font-size: 10px;
+      opacity: 0.7;
+      margin-right: 8px;
+    }
+  `}</style>
+
+  <div class="ws-simulator">
+    <div class="ws-status">
+      <div id="ws-status-indicator" class="status-indicator status-disconnected"></div>
+      <div>
+        <strong id="ws-status-text">Disconnected</strong>
+        <div style="font-size: 12px; opacity: 0.8;" id="ws-status-detail">Click "Connect" to start</div>
+      </div>
+    </div>
+
+    <div class="ws-controls">
+      <button id="ws-connect-btn" class="ws-button" onclick="wsSimulator.connect()">Connect</button>
+      <button id="ws-disconnect-btn" class="ws-button" onclick="wsSimulator.disconnect()" disabled>Disconnect</button>
+      <button id="ws-ping-btn" class="ws-button" onclick="wsSimulator.sendPing()" disabled>Send Ping</button>
+      <button id="ws-clear-btn" class="ws-button" onclick="wsSimulator.clearChat()">Clear Chat</button>
+    </div>
+
+    <div id="ws-chat" class="ws-chat">
+      <div class="msg-system">
+        <span class="timestamp">--:--:--</span>
+        WebSocket simulator ready. Connect to start messaging.
+      </div>
+    </div>
+
+    <div class="ws-input-group">
+      <input
+        id="ws-message-input"
+        class="ws-input"
+        placeholder="Type a message..."
+        disabled
+        onkeypress="if(event.key === 'Enter') wsSimulator.sendMessage()"
+      />
+      <button id="ws-send-btn" class="ws-button" onclick="wsSimulator.sendMessage()" disabled>Send</button>
+    </div>
+  </div>
+
+  <script dangerouslySetInnerHTML={{__html: `
+    const wsSimulator = (function() {
+      let connected = false;
+      let messageCount = 0;
+
+      function getTimestamp() {
+        return new Date().toLocaleTimeString();
+      }
+
+      function addMessage(text, type) {
+        const chat = document.getElementById('ws-chat');
+        const msg = document.createElement('div');
+        msg.className = 'ws-message msg-' + type;
+        msg.innerHTML = \`<span class="timestamp">\${getTimestamp()}</span>\${text}\`;
+        chat.appendChild(msg);
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      function updateStatus(isConnected) {
+        connected = isConnected;
+        const indicator = document.getElementById('ws-status-indicator');
+        const statusText = document.getElementById('ws-status-text');
+        const statusDetail = document.getElementById('ws-status-detail');
+        const connectBtn = document.getElementById('ws-connect-btn');
+        const disconnectBtn = document.getElementById('ws-disconnect-btn');
+        const pingBtn = document.getElementById('ws-ping-btn');
+        const sendBtn = document.getElementById('ws-send-btn');
+        const input = document.getElementById('ws-message-input');
+
+        if (isConnected) {
+          indicator.className = 'status-indicator status-connected';
+          statusText.textContent = 'Connected';
+          statusDetail.textContent = 'WebSocket connection established';
+          connectBtn.disabled = true;
+          disconnectBtn.disabled = false;
+          pingBtn.disabled = false;
+          sendBtn.disabled = false;
+          input.disabled = false;
+        } else {
+          indicator.className = 'status-indicator status-disconnected';
+          statusText.textContent = 'Disconnected';
+          statusDetail.textContent = 'Click "Connect" to start';
+          connectBtn.disabled = false;
+          disconnectBtn.disabled = true;
+          pingBtn.disabled = true;
+          sendBtn.disabled = true;
+          input.disabled = true;
+        }
+      }
+
+      function connect() {
+        addMessage('Connecting to wss://echo.example.com...', 'system');
+        setTimeout(() => {
+          updateStatus(true);
+          addMessage('✓ WebSocket connection established', 'system');
+          addMessage('Welcome! Server is ready to echo your messages.', 'received');
+        }, 800);
+      }
+
+      function disconnect() {
+        addMessage('Disconnecting...', 'system');
+        setTimeout(() => {
+          updateStatus(false);
+          addMessage('✗ WebSocket connection closed', 'system');
+        }, 300);
+      }
+
+      function sendMessage() {
+        if (!connected) return;
+
+        const input = document.getElementById('ws-message-input');
+        const message = input.value.trim();
+
+        if (!message) return;
+
+        addMessage(message, 'sent');
+        input.value = '';
+        messageCount++;
+
+        // Simulate server response
+        setTimeout(() => {
+          const responses = [
+            \`Echo: \${message}\`,
+            \`Received your message: "\${message}"\`,
+            \`Message #\${messageCount} acknowledged\`,
+            \`Server says: I got "\${message}"\`
+          ];
+          addMessage(responses[Math.floor(Math.random() * responses.length)], 'received');
+        }, 300 + Math.random() * 500);
+      }
+
+      function sendPing() {
+        if (!connected) return;
+
+        addMessage('PING', 'sent');
+        setTimeout(() => {
+          addMessage('PONG (latency: ' + Math.floor(Math.random() * 50 + 10) + 'ms)', 'received');
+        }, Math.random() * 100 + 50);
+      }
+
+      function clearChat() {
+        document.getElementById('ws-chat').innerHTML = \`
+          <div class="msg-system">
+            <span class="timestamp">\${getTimestamp()}</span>
+            Chat cleared
+          </div>
+        \`;
+      }
+
+      return { connect, disconnect, sendMessage, sendPing, clearChat };
+    })();
+  `}} />
+</div>

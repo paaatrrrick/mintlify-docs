@@ -580,3 +580,295 @@ describe('Todo Application', () => {
 <Tip>
 Use test data builders and factories to create consistent test data across your test suite.
 </Tip>
+
+## Test Coverage Calculator
+
+Calculate and visualize test coverage metrics:
+
+<div id="coverage-calculator">
+  <style>{`
+    .coverage-calc {
+      background: linear-gradient(135deg, #2dd4bf 0%, #14b8a6 100%);
+      border-radius: 12px;
+      padding: 25px;
+      margin: 20px 0;
+      color: white;
+    }
+    .coverage-title {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .input-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .input-field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .input-label {
+      font-size: 12px;
+      font-weight: bold;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+    .coverage-input {
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+    }
+    .coverage-input:focus {
+      outline: 3px solid rgba(255, 255, 255, 0.5);
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    .metric-card {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+    .metric-value {
+      font-size: 36px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    .metric-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      opacity: 0.8;
+      letter-spacing: 1px;
+    }
+    .coverage-bar {
+      height: 30px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 15px;
+      overflow: hidden;
+      margin: 10px 0;
+      position: relative;
+    }
+    .coverage-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #34d399);
+      transition: width 0.5s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    .coverage-excellent { background: linear-gradient(90deg, #10b981, #34d399) !important; }
+    .coverage-good { background: linear-gradient(90deg, #f59e0b, #fbbf24) !important; }
+    .coverage-poor { background: linear-gradient(90deg, #ef4444, #f87171) !important; }
+    .recommendation {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .calc-button {
+      width: 100%;
+      padding: 15px;
+      background: white;
+      color: #14b8a6;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 15px;
+    }
+    .calc-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+  `}</style>
+
+  <div class="coverage-calc">
+    <div class="coverage-title">Test Coverage Analyzer</div>
+
+    <div class="input-grid">
+      <div class="input-field">
+        <label class="input-label">Total Lines</label>
+        <input type="number" id="total-lines" class="coverage-input" value="1000" min="1" />
+      </div>
+      <div class="input-field">
+        <label class="input-label">Covered Lines</label>
+        <input type="number" id="covered-lines" class="coverage-input" value="850" min="0" />
+      </div>
+      <div class="input-field">
+        <label class="input-label">Total Functions</label>
+        <input type="number" id="total-functions" class="coverage-input" value="120" min="1" />
+      </div>
+      <div class="input-field">
+        <label class="input-label">Covered Functions</label>
+        <input type="number" id="covered-functions" class="coverage-input" value="100" min="0" />
+      </div>
+      <div class="input-field">
+        <label class="input-label">Total Branches</label>
+        <input type="number" id="total-branches" class="coverage-input" value="200" min="1" />
+      </div>
+      <div class="input-field">
+        <label class="input-label">Covered Branches</label>
+        <input type="number" id="covered-branches" class="coverage-input" value="160" min="0" />
+      </div>
+    </div>
+
+    <button class="calc-button" onclick="coverageCalc.calculate()">Calculate Coverage</button>
+
+    <div id="coverage-results" style="display: none;">
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">Line Coverage</div>
+          <div class="metric-value" id="line-coverage">0%</div>
+          <div class="coverage-bar">
+            <div class="coverage-fill" id="line-bar" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Function Coverage</div>
+          <div class="metric-value" id="function-coverage">0%</div>
+          <div class="coverage-bar">
+            <div class="coverage-fill" id="function-bar" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Branch Coverage</div>
+          <div class="metric-value" id="branch-coverage">0%</div>
+          <div class="coverage-bar">
+            <div class="coverage-fill" id="branch-bar" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Overall Score</div>
+          <div class="metric-value" id="overall-score">0%</div>
+          <div class="coverage-bar">
+            <div class="coverage-fill" id="overall-bar" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="recommendation" id="recommendation"></div>
+    </div>
+  </div>
+
+  <script dangerouslySetInnerHTML={{__html: `
+    const coverageCalc = (function() {
+      function getClassName(percentage) {
+        if (percentage >= 80) return 'coverage-excellent';
+        if (percentage >= 60) return 'coverage-good';
+        return 'coverage-poor';
+      }
+
+      function getRecommendation(line, func, branch, overall) {
+        let recommendations = [];
+
+        if (overall >= 80) {
+          recommendations.push('✓ <strong>Excellent coverage!</strong> Your test suite provides comprehensive protection.');
+        } else if (overall >= 60) {
+          recommendations.push('⚠ <strong>Good coverage</strong>, but there\\'s room for improvement.');
+        } else {
+          recommendations.push('✗ <strong>Coverage needs improvement.</strong> Consider adding more tests.');
+        }
+
+        if (branch < line - 10) {
+          recommendations.push('Focus on testing more edge cases and conditional branches.');
+        }
+
+        if (func < 90) {
+          recommendations.push('Some functions are untested. Aim for at least 90% function coverage.');
+        }
+
+        if (line < 70) {
+          recommendations.push('Increase line coverage by testing more code paths and error scenarios.');
+        }
+
+        const uncoveredLines = parseInt(document.getElementById('total-lines').value) -
+                              parseInt(document.getElementById('covered-lines').value);
+
+        recommendations.push(\`<br><strong>Action Items:</strong><br>• \${uncoveredLines} lines need test coverage<br>• Target: 80%+ coverage across all metrics<br>• Review uncovered code for critical paths\`);
+
+        return recommendations.join('<br><br>');
+      }
+
+      function calculate() {
+        const totalLines = parseInt(document.getElementById('total-lines').value) || 1;
+        const coveredLines = parseInt(document.getElementById('covered-lines').value) || 0;
+        const totalFunctions = parseInt(document.getElementById('total-functions').value) || 1;
+        const coveredFunctions = parseInt(document.getElementById('covered-functions').value) || 0;
+        const totalBranches = parseInt(document.getElementById('total-branches').value) || 1;
+        const coveredBranches = parseInt(document.getElementById('covered-branches').value) || 0;
+
+        const lineCov = Math.min(100, (coveredLines / totalLines * 100)).toFixed(1);
+        const funcCov = Math.min(100, (coveredFunctions / totalFunctions * 100)).toFixed(1);
+        const branchCov = Math.min(100, (coveredBranches / totalBranches * 100)).toFixed(1);
+        const overallCov = ((parseFloat(lineCov) + parseFloat(funcCov) + parseFloat(branchCov)) / 3).toFixed(1);
+
+        document.getElementById('coverage-results').style.display = 'block';
+
+        // Update line coverage
+        document.getElementById('line-coverage').textContent = lineCov + '%';
+        const lineBar = document.getElementById('line-bar');
+        lineBar.style.width = lineCov + '%';
+        lineBar.className = 'coverage-fill ' + getClassName(lineCov);
+        lineBar.textContent = lineCov + '%';
+
+        // Update function coverage
+        document.getElementById('function-coverage').textContent = funcCov + '%';
+        const funcBar = document.getElementById('function-bar');
+        funcBar.style.width = funcCov + '%';
+        funcBar.className = 'coverage-fill ' + getClassName(funcCov);
+        funcBar.textContent = funcCov + '%';
+
+        // Update branch coverage
+        document.getElementById('branch-coverage').textContent = branchCov + '%';
+        const branchBar = document.getElementById('branch-bar');
+        branchBar.style.width = branchCov + '%';
+        branchBar.className = 'coverage-fill ' + getClassName(branchCov);
+        branchBar.textContent = branchCov + '%';
+
+        // Update overall score
+        document.getElementById('overall-score').textContent = overallCov + '%';
+        const overallBar = document.getElementById('overall-bar');
+        overallBar.style.width = overallCov + '%';
+        overallBar.className = 'coverage-fill ' + getClassName(overallCov);
+        overallBar.textContent = overallCov + '%';
+
+        // Update recommendation
+        document.getElementById('recommendation').innerHTML =
+          getRecommendation(parseFloat(lineCov), parseFloat(funcCov), parseFloat(branchCov), parseFloat(overallCov));
+      }
+
+      // Auto-calculate on input change
+      ['total-lines', 'covered-lines', 'total-functions', 'covered-functions', 'total-branches', 'covered-branches'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+          input.addEventListener('input', function() {
+            if (document.getElementById('coverage-results').style.display !== 'none') {
+              calculate();
+            }
+          });
+        }
+      });
+
+      return { calculate };
+    })();
+  `}} />
+</div>

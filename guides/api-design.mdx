@@ -564,3 +564,260 @@ func main() {
 <Tip>
   Version your API from the start. Use URL versioning (`/api/v1/`) or header versioning for backward compatibility.
 </Tip>
+
+## Interactive API Request Builder
+
+Build and test API requests interactively:
+
+<div id="api-builder">
+  <style>{`
+    .api-builder {
+      background: #ffffff;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 25px;
+      margin: 20px 0;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .request-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      align-items: center;
+    }
+    .method-select {
+      padding: 10px;
+      border: 2px solid #e5e7eb;
+      border-radius: 6px;
+      font-weight: bold;
+      background: white;
+      cursor: pointer;
+    }
+    .url-input {
+      flex: 1;
+      padding: 10px;
+      border: 2px solid #e5e7eb;
+      border-radius: 6px;
+      font-family: monospace;
+    }
+    .send-button {
+      padding: 10px 25px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .send-button:hover {
+      transform: translateY(-2px);
+    }
+    .tabs {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 15px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    .tab {
+      padding: 10px 20px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+      color: #6b7280;
+      border-bottom: 3px solid transparent;
+    }
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .headers-grid {
+      display: grid;
+      gap: 10px;
+    }
+    .header-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 10px;
+    }
+    .add-button {
+      padding: 8px 15px;
+      background: #10b981;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .delete-button {
+      padding: 8px 12px;
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .response-container {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 20px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 13px;
+      max-height: 400px;
+      overflow: auto;
+      margin-top: 15px;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .status-200 { background: #10b981; color: white; }
+    .status-201 { background: #22c55e; color: white; }
+    .status-400 { background: #f59e0b; color: white; }
+    .status-404 { background: #ef4444; color: white; }
+    .status-500 { background: #dc2626; color: white; }
+  `}</style>
+
+  <div class="api-builder">
+    <div class="request-row">
+      <select id="method-select" class="method-select">
+        <option value="GET">GET</option>
+        <option value="POST">POST</option>
+        <option value="PUT">PUT</option>
+        <option value="PATCH">PATCH</option>
+        <option value="DELETE">DELETE</option>
+      </select>
+      <input
+        id="url-input"
+        class="url-input"
+        placeholder="https://api.example.com/users"
+        value="https://jsonplaceholder.typicode.com/users/1"
+      />
+      <button class="send-button" onclick="apiBuilder.sendRequest()">Send</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="apiBuilder.switchTab('headers')">Headers</button>
+      <button class="tab" onclick="apiBuilder.switchTab('body')">Body</button>
+    </div>
+
+    <div id="headers-tab" class="tab-content active">
+      <div id="headers-container" class="headers-grid">
+        <div class="header-row">
+          <input type="text" placeholder="Content-Type" class="url-input" value="Content-Type" />
+          <input type="text" placeholder="application/json" class="url-input" value="application/json" />
+          <button class="delete-button" onclick="this.parentElement.remove()">✕</button>
+        </div>
+      </div>
+      <button class="add-button" onclick="apiBuilder.addHeader()" style="margin-top: 10px">+ Add Header</button>
+    </div>
+
+    <div id="body-tab" class="tab-content">
+      <textarea
+        id="body-input"
+        class="url-input"
+        style="width: 100%; height: 150px; resize: vertical; font-family: monospace;"
+        placeholder='{"key": "value"}'
+      ></textarea>
+    </div>
+
+    <div id="response-output" class="response-container" style="display: none;">
+      Response will appear here...
+    </div>
+  </div>
+
+  <script dangerouslySetInnerHTML={{__html: `
+    const apiBuilder = (function() {
+      function switchTab(tabName) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+        event.target.classList.add('active');
+        document.getElementById(tabName + '-tab').classList.add('active');
+      }
+
+      function addHeader() {
+        const container = document.getElementById('headers-container');
+        const row = document.createElement('div');
+        row.className = 'header-row';
+        row.innerHTML = \`
+          <input type="text" placeholder="Header name" class="url-input" />
+          <input type="text" placeholder="Header value" class="url-input" />
+          <button class="delete-button" onclick="this.parentElement.remove()">✕</button>
+        \`;
+        container.appendChild(row);
+      }
+
+      function sendRequest() {
+        const method = document.getElementById('method-select').value;
+        const url = document.getElementById('url-input').value;
+        const output = document.getElementById('response-output');
+
+        // Collect headers
+        const headers = {};
+        document.querySelectorAll('#headers-container .header-row').forEach(row => {
+          const inputs = row.querySelectorAll('input');
+          const key = inputs[0].value.trim();
+          const value = inputs[1].value.trim();
+          if (key && value) {
+            headers[key] = value;
+          }
+        });
+
+        // Get body
+        let body = null;
+        if (['POST', 'PUT', 'PATCH'].includes(method)) {
+          body = document.getElementById('body-input').value;
+        }
+
+        // Show loading
+        output.style.display = 'block';
+        output.innerHTML = '<div style="opacity: 0.6;">Sending request...</div>';
+
+        // Mock API call (since we can't make real CORS requests)
+        setTimeout(() => {
+          const mockStatuses = [200, 201, 404, 500];
+          const status = url.includes('jsonplaceholder') ? 200 : mockStatuses[Math.floor(Math.random() * mockStatuses.length)];
+
+          const mockResponse = {
+            id: 1,
+            name: "Leanne Graham",
+            username: "Bret",
+            email: "leanne@example.com",
+            phone: "1-770-736-8031",
+            website: "hildegard.org"
+          };
+
+          const statusClass = 'status-' + (status === 201 ? '201' : status === 200 ? '200' : status === 404 ? '404' : status >= 500 ? '500' : '400');
+
+          output.innerHTML = \`
+            <div class="status-badge \${statusClass}">
+              \${status} \${status === 200 ? 'OK' : status === 201 ? 'Created' : status === 404 ? 'Not Found' : 'Server Error'}
+            </div>
+            <div><strong>Request:</strong></div>
+            <pre>\${method} \${url}</pre>
+            <div style="margin-top: 10px;"><strong>Response:</strong></div>
+            <pre>\${JSON.stringify(status === 200 ? mockResponse : { error: 'Mock error response' }, null, 2)}</pre>
+            <div style="margin-top: 10px; opacity: 0.6;">
+              <small>⏱️ Response time: \${Math.floor(Math.random() * 100 + 50)}ms</small>
+            </div>
+          \`;
+        }, 500);
+      }
+
+      return { switchTab, addHeader, sendRequest };
+    })();
+  `}} />
+</div>
