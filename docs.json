@@ -155,7 +155,7 @@
         "language": "ja",
         "banner": {
           "content": "This is asdfsad banner234 ja",
-          "dismissible": false
+          "dismissible": true
         },
         "tabs": [
           {
