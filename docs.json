@@ -353,10 +353,6 @@
      "copy"
    ]
   },
-  "banner": {
-    "content": "This is a banner234 global",
-    "dismissible": false
-  },
   "footer": {
     "socials": {
       "x": "https://x.com/mintlify",
