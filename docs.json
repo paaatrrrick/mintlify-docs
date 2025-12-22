@@ -335,7 +335,7 @@
   },
   "banner": {
     "content": "This is global banner",
-    "dismissible": true
+    "dismissible": false
   },
   "logo": {
     "light": "/logo/light.svg",
