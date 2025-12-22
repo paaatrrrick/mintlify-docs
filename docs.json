@@ -154,7 +154,7 @@
       {
         "language": "ja",
         "banner": {
-          "content": "This is asdfsad banner234 ja",
+          "content": "This is my ja banner",
           "dismissible": true
         },
         "tabs": [
@@ -330,6 +330,10 @@
         }
       ]
     }
+  },
+  "banner": {
+    "content": "This is global banner",
+    "dismissible": true
   },
   "logo": {
     "light": "/logo/light.svg",
