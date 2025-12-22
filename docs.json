@@ -39,7 +39,8 @@
       {
         "language": "en",
         "banner": {
-          "content": "Banner234 en lang default"
+          "content": "Banner234 en lang default",
+          "dismissible": true
         },
         "tabs": [
           {
@@ -155,7 +156,7 @@
         "language": "ja",
         "banner": {
           "content": "This is my ja banner",
-          "dismissible": true
+          "dismissible": false
         },
         "tabs": [
           {
@@ -227,7 +228,8 @@
       {
         "language": "es",
         "banner": {
-          "content": "This is a banner234 es"
+          "content": "This is a banner234 es",
+          "dismissible": true
         },
         "tabs": [
           {
@@ -284,7 +286,7 @@
         "language": "zh",
         "banner": {
           "content": "This is a banner234 zh beep boop",
-          "dismissible": false
+          "dismissible": true
         },
         "tabs": [
           {
