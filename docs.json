@@ -228,8 +228,8 @@
       {
         "language": "es",
         "banner": {
-          "content": "This is a banner234 es (again)",
-          "dismissible": true
+          "content": "This es",
+          "dismissible": false
         },
         "tabs": [
           {
