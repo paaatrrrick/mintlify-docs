@@ -1,388 +1,82 @@
 {
-  "openapi": "3.0.0",
-  "info": {
-    "title": "Demo API",
-    "version": "1.0.0",
-    "description": "A demo API with example endpoints"
-  },
-  "servers": [
-    {
-      "url": "https://api.example.com/v1",
-      "description": "Production server"
-    }
-  ],
-  "paths": {
-    "/users": {
-      "get": {
-        "summary": "Get all users",
-        "description": "Retrieve a list of all users in the system",
-        "operationId": "getUsers",
-        "tags": ["Users"],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Maximum number of users to return",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 10,
-              "maximum": 100
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "description": "Number of users to skip",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 0
-            }
-          }
-        ],
+    "openapi": "3.0.4",
+    "info": {
+      "title": "Sample API",
+      "description": "Optional multiline or single-line description in [CommonMark](http://commonmark.org/help/) or HTML.",
+      "version": "0.1.9"
+    },
+    "paths": {
+    "/poc-schema": {
+        "get": {
+        "description": "Schema is resolved via remote $ref (controlled by researcher).",
         "responses": {
-          "200": {
-            "description": "Successful response",
+            "200": {
+            "description": "OK",
             "content": {
-              "application/json": {
+                "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "users": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/User"
-                      }
-                    },
-                    "total": {
-                      "type": "integer",
-                      "description": "Total number of users"
-                    }
-                  }
-                },
-                "example": {
-                  "users": [
-                    {
-                      "id": "usr_123",
-                      "email": "john@example.com",
-                      "name": "John Doe",
-                      "created_at": "2024-01-15T10:30:00Z"
-                    },
-                    {
-                      "id": "usr_456",
-                      "email": "jane@example.com",
-                      "name": "Jane Smith",
-                      "created_at": "2024-01-16T14:20:00Z"
-                    }
-                  ],
-                  "total": 2
+                    "$ref": "https://axtst3ju.instances.httpworkbench.com/schema.json"
                 }
-              }
+                }
             }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      },
-      "post": {
-        "summary": "Create a new user",
-        "description": "Create a new user account in the system",
-        "operationId": "createUser",
-        "tags": ["Users"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
+            }
+        }
+        }
+    },
+      "/users/{id}": {
+        "get": {
+          "summary": "Returns a user by ID.",
+          "description": "Retrieve a single user by their unique identifier.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "description": "The user ID",
               "schema": {
-                "type": "object",
-                "required": ["email", "name"],
-                "properties": {
-                  "email": {
-                    "type": "string",
-                    "format": "email",
-                    "description": "User's email address"
-                  },
-                  "name": {
-                    "type": "string",
-                    "description": "User's full name"
-                  },
-                  "role": {
-                    "type": "string",
-                    "enum": ["admin", "user", "guest"],
-                    "default": "user",
-                    "description": "User's role"
+                "type": "integer"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "A single user object",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/User"
                   }
                 }
-              },
-              "example": {
-                "email": "newuser@example.com",
-                "name": "New User",
-                "role": "user"
               }
+            },
+            "404": {
+              "description": "User not found"
             }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "User created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/User"
-                },
-                "example": {
-                  "id": "usr_789",
-                  "email": "newuser@example.com",
-                  "name": "New User",
-                  "role": "user",
-                  "created_at": "2024-01-17T09:15:00Z"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "error": "Invalid email format"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/users/{userId}": {
-      "delete": {
-        "summary": "Delete a user",
-        "description": "Delete a user account from the system",
-        "operationId": "deleteUser",
-        "tags": ["Users"],
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "path",
-            "required": true,
-            "description": "The unique identifier of the user to delete",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "User deleted successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    },
-                    "deleted_user_id": {
-                      "type": "string"
-                    }
-                  }
-                },
-                "example": {
-                  "message": "User successfully deleted",
-                  "deleted_user_id": "usr_123"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "User not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "error": "User not found"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/project/update/{projectId}": {
-      "post": {
-        "summary": "Update a project",
-        "description": "Update project details and configuration",
-        "operationId": "updateProject",
-        "tags": ["Projects"],
-        "parameters": [
-          {
-            "name": "projectId",
-            "in": "path",
-            "required": true,
-            "description": "The unique identifier of the project to update",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "description": "Project name"
-                  },
-                  "description": {
-                    "type": "string",
-                    "description": "Project description"
-                  },
-                  "status": {
-                    "type": "string",
-                    "enum": ["active", "archived", "draft"],
-                    "description": "Project status"
-                  }
-                }
-              },
-              "example": {
-                "name": "Updated Project Name",
-                "description": "This is an updated project description",
-                "status": "active"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Project updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Project"
-                },
-                "example": {
-                  "id": "proj_123",
-                  "name": "Updated Project Name",
-                  "description": "This is an updated project description",
-                  "status": "active",
-                  "updated_at": "2024-01-17T11:30:00Z"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Project not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    }
-  },
-  "components": {
-    "schemas": {
-      "User": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Unique user identifier"
-          },
-          "email": {
-            "type": "string",
-            "format": "email",
-            "description": "User's email address"
-          },
-          "name": {
-            "type": "string",
-            "description": "User's full name"
-          },
-          "role": {
-            "type": "string",
-            "enum": ["admin", "user", "guest"],
-            "description": "User's role"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Account creation timestamp"
-          }
-        }
-      },
-      "Project": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Unique project identifier"
-          },
-          "name": {
-            "type": "string",
-            "description": "Project name"
-          },
-          "description": {
-            "type": "string",
-            "description": "Project description"
-          },
-          "status": {
-            "type": "string",
-            "enum": ["active", "archived", "draft"],
-            "description": "Project status"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Last update timestamp"
-          }
-        }
-      },
-      "Error": {
-        "type": "object",
-        "properties": {
-          "error": {
-            "type": "string",
-            "description": "Error message"
           }
         }
       }
     },
-    "securitySchemes": {
-      "bearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT"
+    "components": {
+      "schemas": {
+        "User": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "description": "The user's unique identifier"
+            },
+            "name": {
+              "type": "string",
+              "description": "The user's full name"
+            },
+            "email": {
+              "type": "string",
+              "format": "email",
+              "description": "The user's email address"
+            }
+          },
+          "required": ["id", "name", "email"]
+        }
       }
     }
   }
-}

@@ -8,17 +8,7 @@
     "dark": "#15803D"
   },
   "favicon": "/favicon.svg",
-  "styling":{
-    "codeblocks": {
-      "theme" : "rose-pine-dawn"
-    }
-  },
   "api": {
-    "mdx": {
-      "auth": {
-        "method": "bearer"
-      }
-    },
     "examples": {
       "languages": [
         "bash",
@@ -35,14 +25,11 @@
     }
   },
   "navigation": {
-    "languages": [
-      {
-        "language": "en",
-        "banner": {
-          "content": "Banner234 en lang default (again)",
-          "dismissible": true
-        },
-        "tabs": [
+      "tabs": [
+          {
+            "tab": "API Reference",
+            "openapi": "openapi.json"
+          },
           {
             "tab": "Guides",
             "groups": [
@@ -86,232 +73,7 @@
                 ]
               }
             ]
-          },
-          {
-            "tab": "API Reference",
-            "groups": [
-              {
-                "group": "User Management",
-                "icon": "user",
-                "pages": [
-                  "api/get-users",
-                  "api/create-user",
-                  "api/update-user",
-                  "api/delete-user"
-                ]
-              },
-              {
-                "group": "Products",
-                "icon": "box",
-                "pages": [
-                  "api/list-products"
-                ]
-              },
-              {
-                "group": "Orders",
-                "icon": "shopping-cart",
-                "pages": [
-                  "api/list-orders",
-                  "api/create-order"
-                ]
-              },
-              {
-                "group": "Other",
-                "pages": [
-                  "api/trigger"
-                ]
-              }
-            ]
-          },
-          {
-            "tab": "Integrations",
-            "groups": [
-              {
-                "group": "Payment & Cloud",
-                "icon": "plug",
-                "pages": [
-                  "integrations/stripe",
-                  "integrations/aws-s3",
-                  "integrations/sendgrid"
-                ]
-              }
-            ]
-          },
-          {
-            "tab": "Advanced",
-            "groups": [
-              {
-                "group": "Advanced Topics",
-                "icon": "flask",
-                "pages": [
-                  "advanced/performance",
-                  "advanced/security"
-                ]
-              }
-            ]
           }
-        ]
-      },
-      {
-        "language": "ja",
-        "banner": {
-          "content": "This is my ja banner (again)",
-          "dismissible": false
-        },
-        "tabs": [
-          {
-            "tab": "ガイド",
-            "groups": [
-              {
-                "group": "はじめに",
-                "pages": ["ja/index"]
-              },
-              {
-                "group": "開発ガイド",
-                "icon": "book",
-                "pages": [
-                  "ja/guides/authentication"
-                ]
-              }
-            ]
-          },
-          {
-            "tab": "APIリファレンス",
-            "groups": [
-              {
-                "group": "ユーザー管理",
-                "icon": "user",
-                "pages": [
-                  "ja/api/list-users",
-                  "ja/api/get-users",
-                  "ja/api/create-user",
-                  "ja/api/update-user",
-                  "ja/api/delete-user"
-                ]
-              },
-              {
-                "group": "商品管理",
-                "icon": "box",
-                "pages": [
-                  "ja/api/list-products",
-                  "ja/api/get-product"
-                ]
-              },
-              {
-                "group": "注文管理",
-                "icon": "shopping-cart",
-                "pages": [
-                  "ja/api/list-orders",
-                  "ja/api/create-order"
-                ]
-              },
-              {
-                "group": "支払い・返金",
-                "icon": "credit-card",
-                "pages": [
-                  "ja/api/process-payment",
-                  "ja/api/create-refund"
-                ]
-              },
-              {
-                "group": "検索・分析",
-                "icon": "chart-line",
-                "pages": [
-                  "ja/api/search",
-                  "ja/api/analytics"
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "language": "es",
-        "banner": {
-          "content": "This es",
-          "dismissible": false
-        },
-        "tabs": [
-          {
-            "tab": "Guías",
-            "groups": [
-              {
-                "group": "Comenzando",
-                "pages": ["es/index"]
-              }
-            ]
-          },
-          {
-            "tab": "Referencia API",
-            "groups": [
-              {
-                "group": "Gestión de Usuarios",
-                "icon": "user",
-                "pages": [
-                  "es/api/get-users",
-                  "es/api/create-user"
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "language": "fr",
-        "tabs": [
-          {
-            "tab": "Guides",
-            "groups": [
-              {
-                "group": "Commencer",
-                "pages": ["fr/index"]
-              }
-            ]
-          },
-          {
-            "tab": "Référence API",
-            "groups": [
-              {
-                "group": "Gestion des Utilisateurs",
-                "icon": "user",
-                "pages": [
-                  "fr/api/get-users"
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "language": "zh",
-        "banner": {
-          "content": "This is a banner234 zh beep boop (again)",
-          "dismissible": true
-        },
-        "tabs": [
-          {
-            "tab": "指南",
-            "groups": [
-              {
-                "group": "开始",
-                "pages": ["zh/index"]
-              }
-            ]
-          },
-          {
-            "tab": "API参考",
-            "groups": [
-              {
-                "group": "用户管理",
-                "icon": "user",
-                "pages": [
-                  "zh/api/get-users"
-                ]
-              }
-            ]
-          }
-        ]
-      }
     ],
     "global": {
       "anchors": [
