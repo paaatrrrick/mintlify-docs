@@ -42,6 +42,7 @@
                 "icon": "book",
                 "pages": [
                   "guides/authentication",
+                  "guides/deleting-account",
                   "guides/caching",
                   "guides/database-optimization",
                   "guides/api-design",
