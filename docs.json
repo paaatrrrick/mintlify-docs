@@ -58,6 +58,13 @@
                   "guides/monitoring",
                   "guides/ci-cd"
                 ]
+              },
+              {
+                "group": "Account",
+                "icon": "user",
+                "pages": [
+                  "guides/billing"
+                ]
               }
             ]
           },

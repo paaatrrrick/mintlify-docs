@@ -1,0 +1,149 @@
+---
+title: "Billing"
+description: "Manage your subscription, payment methods, and invoices"
+icon: "credit-card"
+---
+
+## Overview
+
+This guide covers everything you need to know about managing your billing, from understanding your subscription plans to handling invoices and payment methods.
+
+## Subscription Plans
+
+Choose the plan that best fits your needs:
+
+<CardGroup cols={3}>
+  <Card title="Starter" icon="seedling">
+    **Free**
+    - Up to 3 projects
+    - Community support
+    - Basic analytics
+  </Card>
+  <Card title="Pro" icon="rocket">
+    **$29/month**
+    - Unlimited projects
+    - Priority support
+    - Advanced analytics
+    - Custom domains
+  </Card>
+  <Card title="Enterprise" icon="building">
+    **Custom pricing**
+    - Everything in Pro
+    - SSO/SAML
+    - Dedicated support
+    - SLA guarantees
+  </Card>
+</CardGroup>
+
+## Managing Your Subscription
+
+### Upgrading Your Plan
+
+<Steps>
+  <Step title="Access billing settings">
+    Navigate to your [dashboard](https://dashboard.mintlify.com) and click on **Settings** → **Billing**.
+  </Step>
+  <Step title="Select a new plan">
+    Review the available plans and click **Upgrade** on your desired plan.
+  </Step>
+  <Step title="Confirm payment">
+    Enter your payment details if not already on file and confirm the upgrade.
+  </Step>
+</Steps>
+
+<Tip>
+  When upgrading mid-cycle, you'll only be charged the prorated difference for the remaining period.
+</Tip>
+
+### Downgrading Your Plan
+
+You can downgrade your plan at any time. The changes will take effect at the start of your next billing cycle.
+
+<Warning>
+  Downgrading may result in loss of access to certain features. Make sure to export any data you need before downgrading.
+</Warning>
+
+## Payment Methods
+
+We accept the following payment methods:
+
+| Method | Availability |
+|--------|-------------|
+| Credit/Debit Cards | Worldwide |
+| PayPal | Select regions |
+| Bank Transfer | Enterprise only |
+| Wire Transfer | Enterprise only |
+
+### Adding a Payment Method
+
+<AccordionGroup>
+  <Accordion title="Add a credit card" icon="credit-card">
+    1. Go to **Settings** → **Billing** → **Payment Methods**
+    2. Click **Add Payment Method**
+    3. Enter your card details
+    4. Click **Save**
+  </Accordion>
+  <Accordion title="Set default payment method" icon="check">
+    1. Navigate to **Payment Methods**
+    2. Find the payment method you want to set as default
+    3. Click the **⋮** menu and select **Set as Default**
+  </Accordion>
+</AccordionGroup>
+
+## Invoices and Receipts
+
+### Viewing Invoices
+
+All invoices are available in your dashboard under **Settings** → **Billing** → **Invoices**.
+
+Each invoice includes:
+- Invoice number and date
+- Billing period
+- Itemized charges
+- Total amount paid
+
+### Downloading Invoices
+
+<CodeGroup>
+```bash CLI
+# Download invoice via API
+curl -X GET "https://api.example.com/v1/invoices/{invoice_id}/download" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -o invoice.pdf
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    f"https://api.example.com/v1/invoices/{invoice_id}/download",
+    headers={"Authorization": "Bearer YOUR_API_KEY"}
+)
+
+with open("invoice.pdf", "wb") as f:
+    f.write(response.content)
+```
+</CodeGroup>
+
+## Billing FAQ
+
+<AccordionGroup>
+  <Accordion title="When am I charged?">
+    Subscriptions are billed at the beginning of each billing cycle. For monthly plans, this is on the same day each month. For annual plans, this is once per year on your subscription anniversary.
+  </Accordion>
+  <Accordion title="Can I get a refund?">
+    We offer a 14-day money-back guarantee for first-time subscribers. After this period, refunds are handled on a case-by-case basis. Contact our support team for assistance.
+  </Accordion>
+  <Accordion title="How do I cancel my subscription?">
+    You can cancel your subscription at any time from **Settings** → **Billing** → **Subscription** → **Cancel Plan**. Your access will continue until the end of your current billing period.
+  </Accordion>
+  <Accordion title="What happens if my payment fails?">
+    If a payment fails, we'll notify you via email and retry the payment over the next few days. If the payment continues to fail, your account may be downgraded to the free tier.
+  </Accordion>
+</AccordionGroup>
+
+## Need Help?
+
+<Note>
+  For billing inquiries or disputes, contact our support team at [billing@example.com](mailto:billing@example.com) or through the dashboard chat.
+</Note>
