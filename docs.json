@@ -35,7 +35,7 @@
             "groups": [
               {
                 "group": "Getting Started",
-                "pages": ["index", "fast", "quickstart"]
+                "pages": ["index", "fast", "quickstart", "contact"]
               },
               {
                 "group": "Development Guides",
