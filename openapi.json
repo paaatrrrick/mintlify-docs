@@ -6,23 +6,6 @@
       "version": "0.1.9"
     },
     "paths": {
-    "/poc-schema": {
-        "get": {
-        "description": "Schema is resolved via remote $ref (controlled by researcher).",
-        "responses": {
-            "200": {
-            "description": "OK",
-            "content": {
-                "application/json": {
-                "schema": {
-                    "$ref": "https://axtst3ju.instances.httpworkbench.com/schema.json"
-                }
-                }
-            }
-            }
-        }
-        }
-    },
       "/users/{id}": {
         "get": {
           "summary": "Returns a user by ID.",
