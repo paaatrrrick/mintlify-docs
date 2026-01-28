@@ -118,7 +118,10 @@
   },
   "contextual": {
     "options": [
-     "copy"
+     "copy",
+     "chatgpt",
+     "claude",
+     "grok"
    ]
   },
   "footer": {
